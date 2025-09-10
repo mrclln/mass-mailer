@@ -16,6 +16,10 @@ class MassMailerServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(
             __DIR__.'/../Config/mass-mailer.php', 'mass-mailer'
         );
+
+        $this->mergeConfigFrom(
+            __DIR__.'/../Config/mass-mailer-ui.php', 'mass-mailer-ui'
+        );
     }
 
     /**
@@ -30,6 +34,7 @@ class MassMailerServiceProvider extends ServiceProvider
         // Publish resources
         $this->publishes([
             __DIR__.'/../Config/mass-mailer.php' => config_path('mass-mailer.php'),
+            __DIR__.'/../Config/mass-mailer-ui.php' => config_path('mass-mailer-ui.php'),
         ], 'mass-mailer-config');
 
         $this->publishes([
@@ -42,8 +47,13 @@ class MassMailerServiceProvider extends ServiceProvider
 
         // Register Livewire component
         if (class_exists(\Livewire\Livewire::class)) {
-            \Livewire\Livewire::component('mass-mailer', MassMailer::class);
+           Livewire::component('mass-mailer', MassMailer::class);
         }
+
+        // Register Blade components
+        $this->loadViewComponentsAs('mass-mailer', [
+            \Mrclln\MassMailer\View\Components\InputError::class => 'input-error',
+        ]);
 
         // Register commands (if any)
         if ($this->app->runningInConsole()) {

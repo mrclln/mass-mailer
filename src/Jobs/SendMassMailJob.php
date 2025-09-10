@@ -47,6 +47,15 @@ class SendMassMailJob implements ShouldQueue
      */
     public function handle(): void
     {
+        // Debug: Log job execution
+        Log::info('SendMassMailJob started', [
+            'recipient_count' => count($this->recipients),
+            'subject' => $this->subject,
+            'same_attachment' => $this->sameAttachmentForAll,
+            'global_attachments_count' => $this->globalAttachments ? count($this->globalAttachments) : 0,
+            'first_recipient' => !empty($this->recipients) ? $this->recipients[0] : null
+        ]);
+
         $batchSize = config('mass-mailer.batch_size', 50);
         $recipients = collect($this->recipients);
 
@@ -54,6 +63,9 @@ class SendMassMailJob implements ShouldQueue
         $recipients->chunk($batchSize)->each(function ($batch) {
             $this->processBatch($batch);
         });
+
+        // Clean up attachment files after sending
+        $this->cleanupAttachments();
 
         // Log completion
         if (config('mass-mailer.logging.enabled', true)) {
@@ -96,6 +108,13 @@ class SendMassMailJob implements ShouldQueue
             return;
         }
 
+        // Debug: Log recipient processing
+        Log::info('Processing recipient', [
+            'email' => $email,
+            'recipient_data' => $recipient,
+            'has_attachments' => isset($recipient['attachments']) && !empty($recipient['attachments'])
+        ]);
+
         // Prepare personalized content
         $personalizedSubject = $this->personalizeContent($this->subject, $recipient);
         $personalizedBody = $this->personalizeContent($this->body, $recipient);
@@ -103,12 +122,41 @@ class SendMassMailJob implements ShouldQueue
         // Prepare attachments
         $attachments = $this->prepareAttachments($recipient);
 
-        // Send the email
-        Mail::to($email)->send(new MassMailerMail(
-            $personalizedSubject,
-            $personalizedBody,
-            $attachments
-        ));
+        Log::info('Sending email', [
+            'to' => $email,
+            'subject' => $personalizedSubject,
+            'attachments_count' => count($attachments),
+            'attachment_paths' => array_column($attachments, 'path')
+        ]);
+
+        // Send the email using direct Mail::send for better attachment handling
+        Mail::send([], [], function ($message) use ($email, $personalizedSubject, $personalizedBody, $attachments) {
+            $message->to($email)
+                ->subject($personalizedSubject);
+
+            // Use HTML template for body
+            $htmlBody = view('mass-mailer::emails.mass-mail', [
+                'subject' => $personalizedSubject,
+                'body' => $personalizedBody
+            ])->render();
+
+            $message->html($htmlBody);
+
+            // Attach files
+            foreach ($attachments as $attachment) {
+                if (isset($attachment['path']) && file_exists($attachment['path'])) {
+                    $message->attach($attachment['path'], [
+                        'as' => $attachment['name'] ?? basename($attachment['path']),
+                        'mime' => $attachment['mime'] ?? 'application/octet-stream',
+                    ]);
+                } else {
+                    Log::warning('Attachment file not found', [
+                        'path' => $attachment['path'] ?? 'null',
+                        'exists' => isset($attachment['path']) ? file_exists($attachment['path']) : false
+                    ]);
+                }
+            }
+        });
 
         // Log successful send
         if (config('mass-mailer.logging.enabled', true)) {
@@ -152,6 +200,34 @@ class SendMassMailJob implements ShouldQueue
         }
 
         return $attachments;
+    }
+
+    /**
+     * Clean up attachment files after sending.
+     */
+    protected function cleanupAttachments(): void
+    {
+        $storageDisk = config('mass-mailer.attachments.storage_disk', 'public');
+
+        if ($this->sameAttachmentForAll && is_array($this->globalAttachments)) {
+            foreach ($this->globalAttachments as $attachment) {
+                if (isset($attachment['path']) && file_exists($attachment['path'])) {
+                    unlink($attachment['path']);
+                    Log::info('Deleted global attachment file: ' . $attachment['path']);
+                }
+            }
+        } else {
+            foreach ($this->recipients as $recipient) {
+                if (isset($recipient['attachments']) && is_array($recipient['attachments'])) {
+                    foreach ($recipient['attachments'] as $attachment) {
+                        if (isset($attachment['path']) && file_exists($attachment['path'])) {
+                            unlink($attachment['path']);
+                            Log::info('Deleted per-recipient attachment file: ' . $attachment['path']);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**

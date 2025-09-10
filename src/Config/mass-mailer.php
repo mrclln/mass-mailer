@@ -26,7 +26,7 @@ return [
     ],
 
     'attachments' => [
-        'max_size' => env('MASS_MAILER_MAX_ATTACHMENT_SIZE', 10240), // KB
+        'max_size' => env('MASS_MAILER_MAX_ATTACHMENT_SIZE', 1024), // KB (1MB)
         'allowed_types' => ['pdf', 'doc', 'docx', 'txt', 'jpg', 'jpeg', 'png'],
         'storage_disk' => env('MASS_MAILER_STORAGE_DISK', 'public'),
     ],

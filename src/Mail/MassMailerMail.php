@@ -60,8 +60,8 @@ class MassMailerMail extends Mailable
             if (isset($attachment['path']) && file_exists($attachment['path'])) {
                 $attachments[] = [
                     'path' => $attachment['path'],
-                    'name' => $attachment['name'] ?? null,
-                    'mime' => $attachment['mime'] ?? null,
+                    'as' => $attachment['name'] ?? basename($attachment['path']),
+                    'mime' => $attachment['mime'] ?? 'application/octet-stream',
                 ];
             }
         }
