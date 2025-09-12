@@ -13,28 +13,30 @@ class MassMailer extends Component
 {
   use WithFileUploads;
 
-  public $recipients = [];
-  public $globalAttachments = [];
-  public $perRecipientAttachments = [];
+  public array $recipients = [];
+  public array $globalAttachments = [];
+  public array $perRecipientAttachments = [];
   public $subject;
   public $body;
   public $sameAttachmentForAll = true;
 
   public $hasEmailCredentials = true; // Default to true for package
-  public $defaultVariables = [];
+  public array $defaultVariables = [];
   public $sending = false;
 
   // Alpine.js state converted to Livewire
   public $newVariable = '';
-  public $variables = [];
+  public array $variables = [];
   public $draggedVariable = '';
   public $csvFile;
   public $previewContent = '';
   public $showPreview = false;
   public $previewEmail = '';
   public $selectedRecipientIndex = null;
+  public $selectedSender = null;
+  public array $senders = [];
 
-  public function mount()
+  public function mount() :void
   {
     // Check if mass mailer is enabled
     if (!config('mass-mailer.enabled', true)) {
@@ -51,11 +53,24 @@ class MassMailer extends Component
 
     // Initialize body to ensure buttons work
     $this->body = '';
+
+    // Initialize selected sender if multiple senders enabled
+    if (config('mass-mailer.multiple_senders', false)) {
+        $senderModel = config('mass-mailer.sender_model');
+        if ($senderModel && $senderModel::count() > 0) {
+            $this->senders = $senderModel::all()->toArray();
+        } else {
+            $this->senders = config('mass-mailer.senders', []);
+        }
+        if (!empty($this->senders)) {
+            $this->selectedSender = 0;
+        }
+    }
   }
 
   protected function rules()
   {
-    $maxSize = config('mass-mailer.attachments.max_size', 10240) / 1024;
+    $maxSize = config('mass-mailer.attachments.max_size', 10240) ;
 
     $rules = [
       'globalAttachments.*' => 'file|max:' . $maxSize,
@@ -275,6 +290,17 @@ class MassMailer extends Component
     $this->selectedRecipientIndex = null;
   }
 
+  public function selectSender($index)
+  {
+    $this->selectedSender = $index;
+     LivewireAlert::success()
+          ->title($successConfig['title'] ?? 'Success!')
+          ->text('Sender email changed to: ' . config('mass-mailer.senders')[$index]['name'])
+          ->toast(true)->timer(3000)
+          ->position('top-end')
+          ->show();
+  }
+
   public function removeAttachment($recipientIndex, $attachmentIndex)
   {
     if (isset($this->perRecipientAttachments[$recipientIndex][$attachmentIndex])) {
@@ -401,13 +427,20 @@ class MassMailer extends Component
         'first_recipient_attachments' => isset($updatedPayload[0]['attachments']) ? count($updatedPayload[0]['attachments']) : 0
       ]);
 
+      // Get selected sender credentials
+      $selectedSenderCredentials = null;
+      if (config('mass-mailer.multiple_senders', false) && isset($this->senders[$this->selectedSender])) {
+          $selectedSenderCredentials = $this->senders[$this->selectedSender];
+      }
+
       // Dispatch the job with configured queue
       SendMassMailJob::dispatch(
         $updatedPayload,
         $this->subject,
         $this->body,
         $this->sameAttachmentForAll ? $storedGlobalAttachments : null,
-        $this->sameAttachmentForAll
+        $this->sameAttachmentForAll,
+        $selectedSenderCredentials
       )->onQueue(config('mass-mailer.queue.name', 'mass-mailer'));
 
       // Log the action if logging is enabled
@@ -477,6 +510,7 @@ class MassMailer extends Component
       'showPreview' => $this->showPreview,
       'previewEmail' => $this->previewEmail,
       'selectedRecipientIndex' => $this->selectedRecipientIndex,
+      'selectedSender' => $this->selectedSender,
     ]);
   }
 }

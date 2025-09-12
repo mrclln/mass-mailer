@@ -3,13 +3,17 @@
     'recipients' => [],
     'sameAttachmentForAll' => true,
     'perRecipientAttachments' => [],
+    'selectedSender' => 0,
 ])
 
 <!-- Recipients Table Card -->
 <div class="bg-white rounded-lg shadow-sm border border-gray-200 ">
+    <div class="relative px-6 py-4 border-b border-gray-200">
+        <h5 class="text-lg font-bold">Recipients Table</h5>
+    </div>
     <div class="p-6">
         <div class="flex justify-between items-center mb-4">
-            <h5 class="text-lg font-bold mb-0">Recipients Table</h5>
+            <div></div>
             <button type="button"
                 class="{{ mass_mailer_get_color_classes('primary', 'tailwind') }} px-3 py-1 rounded-md text-sm transition-colors"
                 wire:click="addEmptyRecipient" wire:loading.attr="disabled">

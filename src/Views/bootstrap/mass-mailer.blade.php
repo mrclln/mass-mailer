@@ -1,4 +1,4 @@
-<div class="mass-mailer-container">
+<div class="mass-mailer-container position-relative">
     @include('mass-mailer::components.shared.external-libraries')
     @if ($hasEmailCredentials)
         <div class="row g-4">
@@ -39,7 +39,26 @@
             <div class="col-lg-8 d-flex flex-column">
                 <div class="card rounded shadow-sm  d-flex flex-column">
                     <div class="card-body p-4">
-                        <h2 class="fs-5 fw-bold mb-3 ">Compose Email</h2>
+                        <div class="d-flex justify-content-between align-items-center ">
+                            <h2 class="fs-5 fw-bold mb-3 ">Compose Email</h2>
+                            @if (config('mass-mailer.multiple_senders'))
+                                <div class="dropdown position-absolute" style="top: 10px; right: 10px;">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        @foreach (config('mass-mailer.senders') as $index => $sender)
+                                            <li class="{{ $index == $selectedSender ? 'active' : '' }}"><a
+                                                    class="dropdown-item" href="#"
+                                                    wire:click="selectSender({{ $index }})"><i
+                                                        class="bi {{ $index == $selectedSender ? 'bi-check-circle' : 'bi-circle' }}"></i>
+                                                    {{ $sender['name'] }} &lt;{{ $sender['email'] }}&gt;</a></li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
+                        </div>
                         <div class="mb-3">
                             <input id="email-subject" type="text" wire:model.live="subject"
                                 class="{{ mass_mailer_get_form_classes('input', 'bootstrap') }}"

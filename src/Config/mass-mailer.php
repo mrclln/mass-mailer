@@ -55,7 +55,45 @@ return [
         ],
     ],
 
-    'ui' => [
+/*
+|--------------------------------------------------------------------------
+| Multiple Senders Configuration
+|--------------------------------------------------------------------------
+|
+| Enable multiple senders for mass mailing. If enabled, the system will use
+| the configured sender profiles for sending emails.
+| Set MASS_MAILER_MULTIPLE_SENDERS to true to enable.
+|
+*/
+'multiple_senders' => env('MASS_MAILER_MULTIPLE_SENDERS', false),
+'senders' => [
+    [
+        'name' => env('MASS_MAILER_SENDER_1_NAME', 'Sender 1'),
+        'email' => env('MASS_MAILER_SENDER_1_EMAIL'),
+        'host' => env('MASS_MAILER_SENDER_1_HOST'),
+        'port' => env('MASS_MAILER_SENDER_1_PORT'),
+        'username' => env('MASS_MAILER_SENDER_1_USERNAME'),
+        'password' => env('MASS_MAILER_SENDER_1_PASSWORD'),
+        'encryption' => env('MASS_MAILER_SENDER_1_ENCRYPTION'),
+    ],
+    // Add more sender profiles as needed, e.g., SENDER_2_*, etc.
+],
+
+/*
+|--------------------------------------------------------------------------
+| Sender Model Configuration
+|--------------------------------------------------------------------------
+|
+| Specify the model class for loading senders from the database.
+| This is used when multiple_senders is enabled and you want to load
+| sender profiles dynamically from the database instead of static config.
+| Default: Mrclln\MassMailer\Models\MassMailerSender
+|
+*/
+'sender_model' => env('MASS_MAILER_SENDER_MODEL', 'Mrclln\MassMailer\Models\MassMailerSender'),
+//'sender_model' => Auth::user()->massMailerSenders()->get()->toArray(),
+
+'ui' => [
         'framework' => env('MASS_MAILER_UI_FRAMEWORK', 'bootstrap'), // bootstrap, tailwind
         'theme' => env('MASS_MAILER_UI_THEME', 'default'),
         'variables' => ['email', 'first_name', 'last_name'],

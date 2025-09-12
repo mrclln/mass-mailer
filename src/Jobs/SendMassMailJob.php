@@ -10,6 +10,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\View;
 use Mrclln\MassMailer\Mail\MassMailerMail;
 
 class SendMassMailJob implements ShouldQueue
@@ -24,6 +25,7 @@ class SendMassMailJob implements ShouldQueue
     protected $body;
     protected $globalAttachments;
     protected $sameAttachmentForAll;
+    protected $senderCredentials;
 
     /**
      * Create a new job instance.
@@ -33,13 +35,16 @@ class SendMassMailJob implements ShouldQueue
         string $subject,
         string $body,
         ?array $globalAttachments = null,
-        bool $sameAttachmentForAll = true
+        bool $sameAttachmentForAll = true,
+        ?array $senderCredentials = null
     ) {
         $this->recipients = $recipients;
         $this->subject = $subject;
         $this->body = $body;
         $this->globalAttachments = $globalAttachments;
         $this->sameAttachmentForAll = $sameAttachmentForAll;
+        $this->senderCredentials = $senderCredentials;
+
     }
 
     /**
@@ -47,13 +52,34 @@ class SendMassMailJob implements ShouldQueue
      */
     public function handle(): void
     {
+        // Set sender credentials if provided
+        if ($this->senderCredentials) {
+            $requiredKeys = ['host', 'port', 'username', 'password', 'encryption'];
+            foreach ($requiredKeys as $key) {
+                if (!isset($this->senderCredentials[$key])) {
+                    Log::error("Missing required sender credential: {$key}");
+                    throw new \Exception("Missing required sender credential: {$key}");
+                }
+            }
+            $currentMailConfig = config('mail.mailers.smtp');
+            config(['mail.mailers.smtp' => array_merge($currentMailConfig, $this->senderCredentials)]);
+            config(['mail.default' => 'smtp']);
+            Log::info('SMTP config updated', [
+                'host' => config('mail.mailers.smtp.host'),
+                'port' => config('mail.mailers.smtp.port'),
+                'username' => config('mail.mailers.smtp.username'),
+                'encryption' => config('mail.mailers.smtp.encryption'),
+            ]);
+        }
+
         // Debug: Log job execution
         Log::info('SendMassMailJob started', [
             'recipient_count' => count($this->recipients),
             'subject' => $this->subject,
             'same_attachment' => $this->sameAttachmentForAll,
             'global_attachments_count' => $this->globalAttachments ? count($this->globalAttachments) : 0,
-            'first_recipient' => !empty($this->recipients) ? $this->recipients[0] : null
+            'first_recipient' => !empty($this->recipients) ? $this->recipients[0] : null,
+            'sender_credentials' => $this->senderCredentials ? 'provided' : 'default'
         ]);
 
         $batchSize = config('mass-mailer.batch_size', 50);
@@ -91,6 +117,12 @@ class SendMassMailJob implements ShouldQueue
                     sleep(1); // Simple rate limiting - 1 email per second
                 }
 
+            } catch (\Swift_TransportException $e) {
+                Log::error('SMTP Transport Exception during batch processing', [
+                    'recipient' => $recipient['email'] ?? 'unknown',
+                    'error' => $e->getMessage(),
+                ]);
+                $this->handleSendError($recipient, $e);
             } catch (\Exception $e) {
                 $this->handleSendError($recipient, $e);
             }
@@ -129,10 +161,26 @@ class SendMassMailJob implements ShouldQueue
             'attachment_paths' => array_column($attachments, 'path')
         ]);
 
+        // Check if email view exists
+        if (!View::exists('mass-mailer::emails.mass-mail')) {
+            Log::error('Email view does not exist: mass-mailer::emails.mass-mail');
+            throw new \Exception('Email view does not exist');
+        }
+
+        // Log SMTP connection attempt
+        Log::info('Attempting SMTP connection for email send', ['to' => $email]);
+
         // Send the email using direct Mail::send for better attachment handling
         Mail::send([], [], function ($message) use ($email, $personalizedSubject, $personalizedBody, $attachments) {
             $message->to($email)
                 ->subject($personalizedSubject);
+
+            // Set from address if sender credentials provided
+            if ($this->senderCredentials) {
+                $fromEmail = $this->senderCredentials['email'] ?? config('mail.from.address');
+                $fromName = $this->senderCredentials['name'] ?? config('mail.from.name');
+                $message->from($fromEmail, $fromName);
+            }
 
             // Use HTML template for body
             $htmlBody = view('mass-mailer::emails.mass-mail', [
@@ -237,11 +285,19 @@ class SendMassMailJob implements ShouldQueue
     {
         $email = $recipient['email'] ?? 'unknown';
 
-        Log::error('Failed to send mass mail to recipient', [
-            'recipient' => $email,
-            'error' => $e->getMessage(),
-            'attempt' => $this->attempts(),
-        ]);
+        if ($e instanceof \Swift_TransportException) {
+            Log::error('SMTP Transport Exception: Failed to send mass mail to recipient', [
+                'recipient' => $email,
+                'error' => $e->getMessage(),
+                'attempt' => $this->attempts(),
+            ]);
+        } else {
+            Log::error('Failed to send mass mail to recipient', [
+                'recipient' => $email,
+                'error' => $e->getMessage(),
+                'attempt' => $this->attempts(),
+            ]);
+        }
 
         // If this is the last attempt, we might want to store failed emails
         if ($this->attempts() >= $this->tries) {
