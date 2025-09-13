@@ -35,7 +35,7 @@
                         <div class="p-4">
                             <p class="mb-2"><strong>To:</strong> {{ $previewEmail ?: 'N/A' }}
                             </p>
-                            <p>{!! nl2br(e($previewContent)) !!}</p>
+                            <p>{!! $previewContent !!}</p>
                         </div>
                         <div
                             class="px-4 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">
