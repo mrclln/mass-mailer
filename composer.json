@@ -1,13 +1,12 @@
 {
     "name": "mrclln/mass-mailer",
     "description": "A powerful Laravel package for mass email campaigns with customizable UI frameworks (Bootstrap/Tailwind)",
-    "version": "1.0.0",
     "type": "library",
     "license": "MIT",
     "authors": [
         {
             "name": "Mrclln",
-            "email": "your-email@example.com"
+            "email": "mojicamarcallen@gmail.com"
         }
     ],
     "require": {
@@ -40,6 +39,6 @@
             ]
         }
     },
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "prefer-stable": true
 }
