@@ -1,6 +1,7 @@
 {
     "name": "mrclln/mass-mailer",
-    "description": "A powerful Laravel package for mass email campaigns with customizable UI frameworks (Bootstrap/Tailwind)",
+    "description": "A powerful Laravel package for mass email campaigns with customizable UI frameworks (Bootstrap/Tailwind) and auto-detection features",
+    "version": "1.1.0",
     "type": "library",
     "license": "MIT",
     "authors": [
