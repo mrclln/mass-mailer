@@ -46,7 +46,15 @@ php artisan vendor:publish --provider="Mrclln\MassMailer\Providers\MassMailerSer
 php artisan vendor:publish --provider="Mrclln\MassMailer\Providers\MassMailerServiceProvider" --tag="mass-mailer-migrations"
 php artisan migrate
 ```
-
+If the provider is **not automatically added**, open:
+bootstrap/providers.php
+and add:
+```bash
+return [
+    // Other providers...
+    Mrclln\MassMailer\Providers\MassMailerServiceProvider::class,
+];
+```
 4. **Choose your UI style** in `.env`
 ```bash
 MASS_MAILER_UI_FRAMEWORK=bootstrap  # or 'tailwind'
