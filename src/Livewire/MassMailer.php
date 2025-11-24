@@ -67,15 +67,25 @@ class MassMailer extends Component
 
     // Initialize selected sender if multiple senders enabled
     if (config('mass-mailer.multiple_senders', false)) {
+        $this->senders = [];
+
+        // Load config-based senders first
+        $configSenders = config('mass-mailer.senders', []);
+        foreach ($configSenders as $index => $sender) {
+            // Assign a negative index for config senders to avoid conflicts with DB IDs
+            $this->senders[] = array_merge($sender, ['id' => 'config_' . $index]);
+        }
+
+        // Append database-based senders
         $senderModel = config('mass-mailer.sender_model');
         if ($senderModel && $senderModel::count() > 0) {
-            $this->senders = $senderModel::all()->toArray();
-        } else {
-            $this->senders = config('mass-mailer.senders', []);
+            $dbSenders = $senderModel::all()->toArray();
+            $this->senders = array_merge($this->senders, $dbSenders);
         }
+
         if (!empty($this->senders)) {
             $this->selectedSender = 0;
-            $this->selectedSenderId = $this->senders[0]['id'] ?? null;
+            $this->selectedSenderId = $this->senders[0]['id'];
         }
     }
   }
@@ -376,7 +386,7 @@ class MassMailer extends Component
   public function selectSender($senderId)
   {
     if ($senderId === 'add-new') {
-      $this->showAddSenderForm = true;
+      $this->setShowAddSenderForm(true);
       return;
     }
 
@@ -393,6 +403,16 @@ class MassMailer extends Component
           ->toast(true)->timer(3000)
           ->position('top-end')
           ->show();
+    }
+  }
+
+  public function setShowAddSenderForm($value)
+  {
+    $this->showAddSenderForm = $value;
+    if ($value) {
+      // Clear selected sender when opening add sender form
+      $this->selectedSenderId = null;
+      $this->selectedSender = null;
     }
   }
 
@@ -731,9 +751,32 @@ class MassMailer extends Component
 
   public function closeAddSenderForm()
   {
-    $this->showAddSenderForm = false;
+    $this->setShowAddSenderForm(false);
     $this->reset(['newSenderName', 'newSenderEmail', 'newSenderHost', 'newSenderPort', 'newSenderUsername', 'newSenderPassword']);
     $this->newSenderEncryption = 'tls';
+  }
+
+  public function reloadSenders()
+  {
+    if (!config('mass-mailer.multiple_senders', false)) {
+      return;
+    }
+
+    $this->senders = [];
+
+    // Load config-based senders first
+    $configSenders = config('mass-mailer.senders', []);
+    foreach ($configSenders as $index => $sender) {
+      // Assign a negative index for config senders to avoid conflicts with DB IDs
+      $this->senders[] = array_merge($sender, ['id' => 'config_' . $index]);
+    }
+
+    // Append database-based senders
+    $senderModel = config('mass-mailer.sender_model');
+    if ($senderModel && $senderModel::count() > 0) {
+      $dbSenders = $senderModel::all()->toArray();
+      $this->senders = array_merge($this->senders, $dbSenders);
+    }
   }
 
   public function saveNewSender()
@@ -762,8 +805,8 @@ class MassMailer extends Component
         'user_id' => auth()->id(),
       ]);
 
-      // Reload senders and select the new one
-      $this->senders = $senderModel::all()->toArray();
+      // Reload both config-based and database senders, then select the new one
+      $this->reloadSenders();
       $this->selectedSenderId = $newSender->id;
       $this->selectedSender = array_search($newSender->id, array_column($this->senders, 'id'));
 

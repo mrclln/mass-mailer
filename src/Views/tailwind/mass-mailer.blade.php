@@ -68,8 +68,8 @@
                                             @endforeach
                                             <option value="add-new">+ Add New Sender</option>
                                         </select>
-                                        <button type="button" class="text-blue-600 hover:text-blue-800 text-sm" wire:click="showAddSenderForm = true">
-                                            <i class="bi bi-plus-circle"></i>
+                                        <button type="button" class="text-blue-600 hover:text-blue-800 text-sm" wire:click="setShowAddSenderForm(true)">
+                                            <i class="fas fa-plus-circle"></i>
                                         </button>
                                     </div>
                                 @endif

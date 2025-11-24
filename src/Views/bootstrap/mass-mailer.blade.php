@@ -52,8 +52,8 @@
                                         @endforeach
                                         <option value="add-new">+ Add New Sender</option>
                                     </select>
-                                    <button type="button" class="btn btn-outline-primary btn-sm" wire:click="showAddSenderForm = true">
-                                        <i class="bi bi-plus-circle"></i>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" wire:click="setShowAddSenderForm(true)">
+                                        <i class="bi bi-plus-circle"></i> +
                                     </button>
                                 </div>
                             @endif
