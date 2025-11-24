@@ -154,6 +154,9 @@ class SendMassMailJob implements ShouldQueue
         // Prepare attachments
         $attachments = $this->prepareAttachments($recipient);
 
+        // Prepare CC recipients
+        $ccRecipients = $this->getCcRecipients($recipient);
+
         Log::info('Sending email', [
             'to' => $email,
             'subject' => $personalizedSubject,
@@ -171,9 +174,6 @@ class SendMassMailJob implements ShouldQueue
 
         // Log SMTP connection attempt
         Log::info('Attempting SMTP connection for email send', ['to' => $email]);
-
-        // Prepare CC recipients
-        $ccRecipients = $this->getCcRecipients($recipient);
 
         // Send the email using direct Mail::send for better attachment handling
         Mail::send([], [], function ($message) use ($email, $personalizedSubject, $personalizedBody, $attachments, $ccRecipients) {
@@ -238,10 +238,10 @@ class SendMassMailJob implements ShouldQueue
     /**
      * Personalize content by replacing variables.
      */
-    protected function personalizeContent(string $content, array $recipient): string
+    public function personalizeContent(string $content, array $recipient): string
     {
         foreach ($recipient as $key => $value) {
-            if ($key !== 'attachments') {
+            if ($key !== 'attachments' && !is_array($value)) {
                 $content = str_replace("{{ {$key} }}", $value, $content);
                 $content = str_replace("{{{$key}}}", $value, $content);
             }
@@ -264,6 +264,16 @@ class SendMassMailJob implements ShouldQueue
         // Add recipient-specific attachments
         if (!$this->sameAttachmentForAll && isset($recipient['attachments'])) {
             $attachments = array_merge($attachments, $recipient['attachments']);
+        }
+
+        // Add recipient-specific attachments when sameAttachmentForAll is true and attachments are available
+        if ($this->sameAttachmentForAll && isset($recipient['attachments']) && is_array($recipient['attachments'])) {
+            $attachments = array_merge($attachments, $recipient['attachments']);
+        }
+
+        // Add auto-detected attachments (for both sameAttachmentForAll and per-recipient modes)
+        if (isset($recipient['_auto_attachments']) && is_array($recipient['_auto_attachments'])) {
+            $attachments = array_merge($attachments, $recipient['_auto_attachments']);
         }
 
         return $attachments;
