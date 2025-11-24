@@ -146,6 +146,47 @@ Customize in `config/mass-mailer.php`:
 - **UI Framework**: Bootstrap or Tailwind
 - **Multiple Senders**: Enable sender switching
 
+## ⚡ Queue Worker (Important!)
+
+Since the mass mailer uses Laravel's queue system for background processing, you **must** start the queue worker for emails to be sent:
+
+```bash
+php artisan queue:work --queue=mass-mailer
+```
+
+**For production**, consider using a process manager like Supervisor:
+
+```bash
+# Install Supervisor (Ubuntu/Debian)
+sudo apt-get install supervisor
+
+# Create configuration file
+sudo nano /etc/supervisor/conf.d/mass-mailer-worker.conf
+```
+
+Add this configuration:
+```ini
+[program:mass-mailer-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /path/to/your/project/artisan queue:work --queue=mass-mailer --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/path/to/your/project/storage/logs/worker.log
+stopwaitsecs=3600
+```
+
+Then start the worker:
+```bash
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start mass-mailer-worker:*
+```
+
 ## 📋 Requirements
 
 - PHP 8.1+
