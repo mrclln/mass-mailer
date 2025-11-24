@@ -109,6 +109,7 @@ jane@example.com,Jane,Smith,Tech Inc
 ### Multiple Senders
 Configure different email accounts and even attach senders to user models for dynamic sender management:
 
+#### Option 1: Configuration-based Senders
 ```php
 // In config/mass-mailer.php
 'multiple_senders' => true,
@@ -116,11 +117,36 @@ Configure different email accounts and even attach senders to user models for dy
     ['name' => 'Support', 'email' => 'support@company.com'],
     ['name' => 'Sales', 'email' => 'sales@company.com'],
 ]
+```
 
-// Or load from database/user model:
-'sender_model' => 'App\Models\User', // or custom sender model
-// Then in your User model:
-return $this->hasMany(MassMailerSender::class);
+#### Option 2: Database-driven Senders (Recommended)
+First, **run the migration** to create the senders table:
+```bash
+php artisan migrate
+```
+
+**Then create the relationship in your User model:**
+
+```php
+// app/Models/User.php
+use Mrclln\MassMailer\Models\MassMailerSender;
+
+class User extends Authenticatable
+{
+    // ... other code
+
+    public function massMailerSenders()
+    {
+        return $this->hasMany(MassMailerSender::class);
+    }
+}
+```
+
+**Configure the package to use the User model:**
+```php
+// config/mass-mailer.php
+'multiple_senders' => true,
+'sender_model' => \App\Models\User::class,
 ```
 
 **Benefits of User Model Attachment:**
@@ -129,6 +155,7 @@ return $this->hasMany(MassMailerSender::class);
 - Dynamic sender loading based on authenticated user
 - Easy to manage sender permissions per user
 - Supports complex business logic for sender selection
+- New senders can be added through the UI interface
 
 ### Attachments
 - **Global**: Same file for all recipients

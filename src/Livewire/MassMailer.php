@@ -35,6 +35,17 @@ class MassMailer extends Component
   public $selectedRecipientIndex = null;
   public $selectedSender = null;
   public array $senders = [];
+  public $selectedSenderId = null;
+  public $showAddSenderForm = false;
+
+  // New sender form fields
+  public $newSenderName = '';
+  public $newSenderEmail = '';
+  public $newSenderHost = '';
+  public $newSenderPort = 587;
+  public $newSenderUsername = '';
+  public $newSenderPassword = '';
+  public $newSenderEncryption = 'tls';
 
   public function mount() :void
   {
@@ -64,6 +75,7 @@ class MassMailer extends Component
         }
         if (!empty($this->senders)) {
             $this->selectedSender = 0;
+            $this->selectedSenderId = $this->senders[0]['id'] ?? null;
         }
     }
   }
@@ -361,15 +373,34 @@ class MassMailer extends Component
     $this->selectedRecipientIndex = null;
   }
 
-  public function selectSender($index)
+  public function selectSender($senderId)
   {
-    $this->selectedSender = $index;
-     LivewireAlert::success()
+    if ($senderId === 'add-new') {
+      $this->showAddSenderForm = true;
+      return;
+    }
+
+    $this->selectedSenderId = $senderId;
+
+    // Find the index of the selected sender
+    $index = array_search($senderId, array_column($this->senders, 'id'));
+    if ($index !== false) {
+      $this->selectedSender = $index;
+      $successConfig = \mass_mailer_get_sweetalert_config('success');
+      LivewireAlert::success()
           ->title($successConfig['title'] ?? 'Success!')
-          ->text('Sender email changed to: ' . config('mass-mailer.senders')[$index]['name'])
+          ->text('Sender email changed to: ' . $this->senders[$index]['name'])
           ->toast(true)->timer(3000)
           ->position('top-end')
           ->show();
+    }
+  }
+
+  public function updatedSelectedSenderId($value)
+  {
+    if ($value) {
+      $this->selectSender($value);
+    }
   }
 
   public function removeAttachment($recipientIndex, $attachmentIndex)
@@ -633,8 +664,13 @@ class MassMailer extends Component
 
       // Get selected sender credentials
       $selectedSenderCredentials = null;
-      if (config('mass-mailer.multiple_senders', false) && isset($this->senders[$this->selectedSender])) {
-          $selectedSenderCredentials = $this->senders[$this->selectedSender];
+      if (config('mass-mailer.multiple_senders', false) && $this->selectedSenderId) {
+          foreach ($this->senders as $sender) {
+              if (($sender['id'] ?? null) == $this->selectedSenderId) {
+                  $selectedSenderCredentials = $sender;
+                  break;
+              }
+          }
       }
 
       // Dispatch the job with configured queue
@@ -693,6 +729,68 @@ class MassMailer extends Component
     }
   }
 
+  public function closeAddSenderForm()
+  {
+    $this->showAddSenderForm = false;
+    $this->reset(['newSenderName', 'newSenderEmail', 'newSenderHost', 'newSenderPort', 'newSenderUsername', 'newSenderPassword']);
+    $this->newSenderEncryption = 'tls';
+  }
+
+  public function saveNewSender()
+  {
+    $this->validate([
+      'newSenderName' => 'required|string|max:255',
+      'newSenderEmail' => 'required|email|unique:mass_mailer_senders,email',
+      'newSenderHost' => 'required|string|max:255',
+      'newSenderPort' => 'required|integer|min:1|max:65535',
+      'newSenderUsername' => 'required|string|max:255',
+      'newSenderPassword' => 'required|string',
+      'newSenderEncryption' => 'required|string|in:tls,ssl',
+    ]);
+
+    try {
+      $senderModel = config('mass-mailer.sender_model', \Mrclln\MassMailer\Models\MassMailerSender::class);
+
+      $newSender = $senderModel::create([
+        'name' => $this->newSenderName,
+        'email' => $this->newSenderEmail,
+        'host' => $this->newSenderHost,
+        'port' => $this->newSenderPort,
+        'username' => $this->newSenderUsername,
+        'password' => $this->newSenderPassword,
+        'encryption' => $this->newSenderEncryption,
+        'user_id' => auth()->id(),
+      ]);
+
+      // Reload senders and select the new one
+      $this->senders = $senderModel::all()->toArray();
+      $this->selectedSenderId = $newSender->id;
+      $this->selectedSender = array_search($newSender->id, array_column($this->senders, 'id'));
+
+      $this->closeAddSenderForm();
+
+      $successConfig = \mass_mailer_get_sweetalert_config('success');
+      LivewireAlert::success()
+          ->title($successConfig['title'] ?? 'Success!')
+          ->text('New sender added successfully!')
+          ->toast(true)->timer(3000)
+          ->position('top-end')
+          ->show();
+
+    } catch (\Exception $e) {
+      Log::error('Failed to save new sender', [
+        'error' => $e->getMessage(),
+        'email' => $this->newSenderEmail
+      ]);
+
+      $errorConfig = \mass_mailer_get_sweetalert_config('error');
+      LivewireAlert::error()
+          ->title($errorConfig['title'] ?? 'Error!')
+          ->text('Failed to save new sender. Please try again.')
+          ->show();
+    }
+  }
+
 
   public function render()
   {
@@ -715,6 +813,8 @@ class MassMailer extends Component
       'previewEmail' => $this->previewEmail,
       'selectedRecipientIndex' => $this->selectedRecipientIndex,
       'selectedSender' => $this->selectedSender,
+      'selectedSenderId' => $this->selectedSenderId,
+      'showAddSenderForm' => $this->showAddSenderForm,
     ]);
   }
 }

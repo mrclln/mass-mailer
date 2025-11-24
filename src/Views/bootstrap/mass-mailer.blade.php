@@ -42,20 +42,19 @@
                         <div class="d-flex justify-content-between align-items-center ">
                             <h2 class="fs-5 fw-bold mb-3 ">Compose Email</h2>
                             @if (config('mass-mailer.multiple_senders'))
-                                <div class="dropdown position-absolute" style="top: 10px; right: 10px;">
-                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
-                                        data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </button>
-                                    <ul class="dropdown-menu">
-                                        @foreach (config('mass-mailer.senders') as $index => $sender)
-                                            <li class="{{ $index == $selectedSender ? 'active' : '' }}"><a
-                                                    class="dropdown-item" href="#"
-                                                    wire:click="selectSender({{ $index }})"><i
-                                                        class="bi {{ $index == $selectedSender ? 'bi-check-circle' : 'bi-circle' }}"></i>
-                                                    {{ $sender['name'] }} &lt;{{ $sender['email'] }}&gt;</a></li>
+                                <div class="d-flex align-items-center gap-2 position-absolute" style="top: 10px; right: 10px;">
+                                    <select wire:model.live="selectedSenderId" class="form-select form-select-sm" style="width: 250px;">
+                                        <option value="">Select Sender</option>
+                                        @foreach ($senders as $index => $sender)
+                                            <option value="{{ $sender['id'] ?? $index }}">
+                                                {{ $sender['name'] }} <{{ $sender['email'] }}>
+                                            </option>
                                         @endforeach
-                                    </ul>
+                                        <option value="add-new">+ Add New Sender</option>
+                                    </select>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" wire:click="showAddSenderForm = true">
+                                        <i class="bi bi-plus-circle"></i>
+                                    </button>
                                 </div>
                             @endif
                         </div>
@@ -106,6 +105,79 @@
                 'selectedRecipientIndex' => $selectedRecipientIndex,
                 'perRecipientAttachments' => $this->perRecipientAttachments,
             ])
+
+            <!-- Add New Sender Modal -->
+            @if ($showAddSenderForm)
+                <div class="modal fade show" style="display: block;" tabindex="-1" wire:ignore.self>
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Add New Sender</h5>
+                                <button type="button" class="btn-close" wire:click="closeAddSenderForm" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form wire:submit.prevent="saveNewSender">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Name</label>
+                                            <input type="text" wire:model="newSenderName" class="form-control">
+                                            @error('newSenderName') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Email</label>
+                                            <input type="email" wire:model="newSenderEmail" class="form-control">
+                                            @error('newSenderEmail') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-8 mb-3">
+                                            <label class="form-label">SMTP Host</label>
+                                            <input type="text" wire:model="newSenderHost" class="form-control">
+                                            @error('newSenderHost') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Port</label>
+                                            <input type="number" wire:model="newSenderPort" class="form-control">
+                                            @error('newSenderPort') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Username</label>
+                                            <input type="text" wire:model="newSenderUsername" class="form-control">
+                                            @error('newSenderUsername') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Password</label>
+                                            <input type="password" wire:model="newSenderPassword" class="form-control">
+                                            @error('newSenderPassword') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Encryption</label>
+                                            <select wire:model="newSenderEncryption" class="form-select">
+                                                <option value="tls">TLS</option>
+                                                <option value="ssl">SSL</option>
+                                            </select>
+                                            @error('newSenderEncryption') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" wire:click="closeAddSenderForm">Cancel</button>
+                                <button type="button" class="btn btn-primary" wire:click="saveNewSender">
+                                    <span wire:loading.remove>Save Sender</span>
+                                    <span wire:loading>Saving...</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-backdrop fade show"></div>
+            @endif
+
             <!-- Scripts -->
             @include('mass-mailer::components.shared.quill-script', ['framework' => 'bootstrap'])
 
