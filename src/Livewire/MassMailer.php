@@ -714,13 +714,7 @@ class MassMailer extends Component
           }
       }
 
-      Log::info('Selected sender credentials', [
-          'selectedSenderId' => $this->selectedSenderId,
-          'hasCredentials' => !empty($selectedSenderCredentials),
-          'hasEmail' => isset($selectedSenderCredentials['email']),
-          'hasHost' => isset($selectedSenderCredentials['host']),
-          'credentialsKeys' => $selectedSenderCredentials ? array_keys($selectedSenderCredentials) : []
-      ]);
+
 
       // Dispatch the job with configured queue
       SendMassMailJob::dispatch(
