@@ -138,7 +138,7 @@ class SendMassMailJob implements ShouldQueue
     {
         foreach ($batch as $recipient) {
             try {
-                $this->sendToRecipient($recipient);
+                $this->sendToRecipient($recipient, $this->senderCredentials);
 
                 // Rate limiting
                 if (config('mass-mailer.rate_limiting.enabled', true)) {
@@ -160,7 +160,7 @@ class SendMassMailJob implements ShouldQueue
     /**
      * Send email to a single recipient.
      */
-    protected function sendToRecipient(array $recipient): void
+    protected function sendToRecipient(array $recipient, ?array $senderCredentials = null): void
     {
         $email = $recipient['email'] ?? null;
         if (!$email) {
@@ -172,7 +172,11 @@ class SendMassMailJob implements ShouldQueue
         Log::info('Processing recipient', [
             'email' => $email,
             'recipient_data' => $recipient,
-            'has_attachments' => isset($recipient['attachments']) && !empty($recipient['attachments'])
+            'has_attachments' => isset($recipient['attachments']) && !empty($recipient['attachments']),
+            'sender_credentials_received' => $senderCredentials ? [
+                'name' => $senderCredentials['name'],
+                'email' => $senderCredentials['email']
+            ] : 'None'
         ]);
 
         // Prepare personalized content
@@ -204,7 +208,7 @@ class SendMassMailJob implements ShouldQueue
         Log::info('Attempting SMTP connection for email send', ['to' => $email]);
 
         // Send the email using direct Mail::send for better attachment handling
-        Mail::send([], [], function ($message) use ($email, $personalizedSubject, $personalizedBody, $attachments, $ccRecipients) {
+        Mail::send([], [], function ($message) use ($email, $personalizedSubject, $personalizedBody, $attachments, $ccRecipients, $senderCredentials) {
             $message->to($email)
                 ->subject($personalizedSubject);
 
@@ -221,16 +225,18 @@ class SendMassMailJob implements ShouldQueue
             }
 
             // Set from address if sender credentials provided
-            if ($this->senderCredentials) {
-                $fromEmail = $this->senderCredentials['email'] ?? config('mail.from.address');
-                $fromName = $this->senderCredentials['name'] ?? config('mail.from.name');
+            if ($senderCredentials) {
+                $fromEmail = $senderCredentials['email'] ?? config('mail.from.address');
+                $fromName = $senderCredentials['name'] ?? config('mail.from.name');
                 $message->from($fromEmail, $fromName);
 
                 Log::info('Set from address', [
                     'to' => $email,
                     'from_email' => $fromEmail,
                     'from_name' => $fromName,
-                    'sender_credentials_email' => $this->senderCredentials['email'] ?? 'N/A'
+                    'sender_credentials_email' => $senderCredentials['email'] ?? 'N/A',
+                    'sender_credentials_name' => $senderCredentials['name'] ?? 'N/A',
+                    'all_sender_credentials' => $senderCredentials
                 ]);
             } else {
                 // Use default from address
