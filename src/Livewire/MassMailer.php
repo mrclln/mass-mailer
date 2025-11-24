@@ -166,6 +166,23 @@ class MassMailer extends Component
       array_unshift($cleanHeaders, 'email');
     }
 
+    // Check for attachments and CC columns
+    $hasAttachmentsColumn = in_array('attachments', $cleanHeaders);
+    $hasCcColumn = in_array('cc', $cleanHeaders);
+
+    $attachmentColumnIndex = null;
+    $ccColumnIndex = null;
+
+    if ($hasAttachmentsColumn) {
+      $attachmentColumnIndex = array_search('attachments', $cleanHeaders);
+      Log::info('Attachments column detected', ['index' => $attachmentColumnIndex]);
+    }
+
+    if ($hasCcColumn) {
+      $ccColumnIndex = array_search('cc', $cleanHeaders);
+      Log::info('CC column detected', ['index' => $ccColumnIndex]);
+    }
+
     $this->variables = $cleanHeaders;
 
     $parsedRecipients = [];
@@ -190,16 +207,51 @@ class MassMailer extends Component
 
       // Create new recipient for each row
       $recipient = array_fill_keys($cleanHeaders, '');
+      $attachmentPaths = [];
+      $ccEmails = [];
 
       // Fill fields based on CSV columns
       foreach ($cleanHeaders as $index => $fieldName) {
         if (isset($row[$index])) {
-          $recipient[$fieldName] = trim($row[$index]);
+          $value = trim($row[$index]);
+
+          // Process attachments column
+          if ($fieldName === 'attachments' && !empty($value)) {
+            // Split comma-separated file paths
+            $filePaths = array_map('trim', explode(',', $value));
+            $recipient[$fieldName] = $value; // Store original value for template variables
+            $attachmentPaths = $this->processAttachmentPaths($filePaths, $i);
+            Log::info('Processed attachment paths', [
+              'recipient_index' => $i - 1,
+              'original_value' => $value,
+              'file_paths' => $filePaths,
+              'processed_attachments' => $attachmentPaths
+            ]);
+          }
+          // Process CC column
+          elseif ($fieldName === 'cc' && !empty($value)) {
+            // Split comma-separated email addresses
+            $emailAddresses = array_map('trim', explode(',', $value));
+            $recipient[$fieldName] = $value; // Store original value for template variables
+            $ccEmails = $this->processCcEmails($emailAddresses, $i);
+            Log::info('Processed CC emails', [
+              'recipient_index' => $i - 1,
+              'original_value' => $value,
+              'email_addresses' => $emailAddresses,
+              'processed_cc' => $ccEmails
+            ]);
+          }
+          else {
+            $recipient[$fieldName] = $value;
+          }
         }
       }
 
       // Only add if we have at least an email
       if (!empty($recipient['email'])) {
+        // Store attachment paths and CC emails in separate properties for processing
+        $recipient['_auto_attachments'] = $attachmentPaths;
+        $recipient['_auto_cc'] = $ccEmails;
         $parsedRecipients[] = $recipient;
         Log::info('Added recipient from CSV row', ['recipient' => $recipient]);
       }
@@ -220,10 +272,27 @@ class MassMailer extends Component
         $row = $data[$i];
         if (!empty(array_filter($row))) {
           $recipient = [];
+          $attachmentPaths = [];
+          $ccEmails = [];
           foreach ($cleanHeaders as $index => $header) {
-            $recipient[$header] = trim($row[$index] ?? '');
+            $value = trim($row[$index] ?? '');
+            if ($header === 'attachments' && !empty($value)) {
+              $filePaths = array_map('trim', explode(',', $value));
+              $recipient[$header] = $value; // Store original value for template variables
+              $attachmentPaths = $this->processAttachmentPaths($filePaths, $i - 1);
+            }
+            elseif ($header === 'cc' && !empty($value)) {
+              $emailAddresses = array_map('trim', explode(',', $value));
+              $recipient[$header] = $value; // Store original value for template variables
+              $ccEmails = $this->processCcEmails($emailAddresses, $i - 1);
+            }
+            else {
+              $recipient[$header] = $value;
+            }
           }
           if (!empty($recipient['email'])) {
+            $recipient['_auto_attachments'] = $attachmentPaths;
+            $recipient['_auto_cc'] = $ccEmails;
             $parsedRecipients[] = $recipient;
           }
         }
@@ -236,6 +305,8 @@ class MassMailer extends Component
     Log::info('CSV parsing complete', [
       'total_lines' => count($lines),
       'headers' => $cleanHeaders,
+      'has_attachments_column' => $hasAttachmentsColumn,
+      'has_cc_column' => $hasCcColumn,
       'recipient_count' => count($parsedRecipients),
       'recipients' => $parsedRecipients
     ]);
@@ -307,6 +378,112 @@ class MassMailer extends Component
       unset($this->perRecipientAttachments[$recipientIndex][$attachmentIndex]);
       $this->perRecipientAttachments[$recipientIndex] = array_values($this->perRecipientAttachments[$recipientIndex]);
     }
+  }
+
+  /**
+   * Process attachment file paths from CSV data.
+   *
+   * @param array $filePaths Array of file paths from CSV
+   * @param int $recipientIndex Index of the recipient for logging
+   * @return array Processed attachment data
+   */
+  protected function processAttachmentPaths(array $filePaths, int $recipientIndex): array
+  {
+    $processedAttachments = [];
+
+    foreach ($filePaths as $filePath) {
+      if (empty($filePath)) continue;
+
+      // Clean the file path
+      $filePath = trim($filePath);
+
+      // Check if file exists
+      if (!file_exists($filePath)) {
+        Log::warning('Attachment file not found', [
+          'recipient_index' => $recipientIndex,
+          'file_path' => $filePath,
+          'exists' => false
+        ]);
+        continue;
+      }
+
+      // Get file information
+      $fileName = basename($filePath);
+      $mimeType = mime_content_type($filePath) ?: 'application/octet-stream';
+      $fileSize = filesize($filePath);
+
+      // Check file size (if configured)
+      $maxSize = config('mass-mailer.attachments.max_size', 10240) * 1024; // Convert KB to bytes
+      if ($fileSize > $maxSize) {
+        Log::warning('Attachment file too large', [
+          'recipient_index' => $recipientIndex,
+          'file_path' => $filePath,
+          'file_size' => $fileSize,
+          'max_size' => $maxSize
+        ]);
+        continue;
+      }
+
+      $processedAttachments[] = [
+        'path' => $filePath,
+        'name' => $fileName,
+        'mime' => $mimeType,
+        'original_path' => $filePath, // Keep original for reference
+        'auto_detected' => true
+      ];
+
+      Log::info('Processed auto-detected attachment', [
+        'recipient_index' => $recipientIndex,
+        'file_path' => $filePath,
+        'file_name' => $fileName,
+        'mime_type' => $mimeType,
+        'file_size' => $fileSize
+      ]);
+    }
+
+    return $processedAttachments;
+  }
+
+  /**
+   * Process CC email addresses from CSV data.
+   *
+   * @param array $emailAddresses Array of email addresses from CSV
+   * @param int $recipientIndex Index of the recipient for logging
+   * @return array Processed CC email data
+   */
+  protected function processCcEmails(array $emailAddresses, int $recipientIndex): array
+  {
+    $processedCc = [];
+
+    foreach ($emailAddresses as $email) {
+      if (empty($email)) continue;
+
+      // Clean the email address
+      $email = trim($email);
+
+      // Validate email format
+      if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        Log::warning('Invalid CC email address', [
+          'recipient_index' => $recipientIndex,
+          'email' => $email,
+          'valid' => false
+        ]);
+        continue;
+      }
+
+      $processedCc[] = [
+        'email' => $email,
+        'auto_detected' => true
+      ];
+
+      Log::info('Processed CC email', [
+        'recipient_index' => $recipientIndex,
+        'email' => $email,
+        'auto_detected' => true
+      ]);
+    }
+
+    return $processedCc;
   }
 
   public function clearForm()
@@ -381,6 +558,30 @@ class MassMailer extends Component
     foreach ($this->recipients as $i => $recipient) {
       $recipientAttachments = [];
 
+      // Handle auto-detected attachments from CSV
+      if (isset($recipient['_auto_attachments']) && is_array($recipient['_auto_attachments'])) {
+        foreach ($recipient['_auto_attachments'] as $autoAttachment) {
+          if (isset($autoAttachment['path']) && file_exists($autoAttachment['path'])) {
+            $recipientAttachments[] = [
+              'path' => $autoAttachment['path'],
+              'name' => $autoAttachment['name'],
+              'mime' => $autoAttachment['mime'],
+              'auto_detected' => true
+            ];
+
+            Log::info('Added auto-detected attachment', [
+              'recipient_index' => $i,
+              'file_path' => $autoAttachment['path'],
+              'file_name' => $autoAttachment['name'],
+              'auto_detected' => true
+            ]);
+          }
+        }
+        // Remove the temporary _auto_attachments field
+        unset($recipient['_auto_attachments']);
+      }
+
+      // Handle manual per-recipient attachments (uploaded files)
       if (!$this->sameAttachmentForAll && isset($this->perRecipientAttachments[$i]) && is_array($this->perRecipientAttachments[$i])) {
         foreach ($this->perRecipientAttachments[$i] as $file) {
           if ($file) {
@@ -402,20 +603,23 @@ class MassMailer extends Component
               'disk' => $disk,
               'full_path' => $fullPath,
               'file_exists' => file_exists($fullPath),
-              'file_size' => file_exists($fullPath) ? filesize($fullPath) : 'N/A'
+              'file_size' => file_exists($fullPath) ? filesize($fullPath) : 'N/A',
+              'auto_detected' => false
             ]);
 
             $recipientAttachments[] = [
               'path' => $fullPath,
               'name' => $file->getClientOriginalName(),
               'mime' => $file->getClientMimeType(),
+              'auto_detected' => false
             ];
           }
         }
       }
 
-      // Add attachments to the recipient data
+      // Add attachments and CC emails to the recipient data
       $recipient['attachments'] = $recipientAttachments;
+      $recipient['_auto_cc'] = $recipient['_auto_cc'] ?? [];
       $updatedPayload[] = $recipient;
     }
 

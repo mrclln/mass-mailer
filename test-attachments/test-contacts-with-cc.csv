@@ -1,0 +1,6 @@
+email,first_name,last_name,attachments,cc
+john.doe@example.com,John,Doe,C:/laragon/www/mass-mailer/test-attachments/sample-document.txt,"manager@example.com,supervisor@example.com"
+jane.smith@example.com,Jane,Smith,"C:/laragon/www/mass-mailer/test-attachments/sample-document.txt,C:/laragon/www/mass-mailer/test-attachments/readme.md",team.lead@example.com
+bob.wilson@example.com,Bob,Wilson,C:/laragon/www/mass-mailer/test-attachments/readme.md,
+alice.jones@example.com,Alice,Jones,,hr@example.com
+charlie.brown@example.com,Charlie,Brown,"C:/laragon/www/mass-mailer/test-attachments/sample-document.txt,C:/laragon/www/mass-mailer/test-attachments/readme.md","admin@example.com,security@example.com"

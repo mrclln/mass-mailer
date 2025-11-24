@@ -158,7 +158,9 @@ class SendMassMailJob implements ShouldQueue
             'to' => $email,
             'subject' => $personalizedSubject,
             'attachments_count' => count($attachments),
-            'attachment_paths' => array_column($attachments, 'path')
+            'attachment_paths' => array_column($attachments, 'path'),
+            'cc_count' => count($ccRecipients),
+            'cc_emails' => array_column($ccRecipients, 'email')
         ]);
 
         // Check if email view exists
@@ -170,10 +172,25 @@ class SendMassMailJob implements ShouldQueue
         // Log SMTP connection attempt
         Log::info('Attempting SMTP connection for email send', ['to' => $email]);
 
+        // Prepare CC recipients
+        $ccRecipients = $this->getCcRecipients($recipient);
+
         // Send the email using direct Mail::send for better attachment handling
-        Mail::send([], [], function ($message) use ($email, $personalizedSubject, $personalizedBody, $attachments) {
+        Mail::send([], [], function ($message) use ($email, $personalizedSubject, $personalizedBody, $attachments, $ccRecipients) {
             $message->to($email)
                 ->subject($personalizedSubject);
+
+            // Add CC recipients if any
+            if (!empty($ccRecipients)) {
+                foreach ($ccRecipients as $ccRecipient) {
+                    $message->cc($ccRecipient['email']);
+                }
+                Log::info('Added CC recipients', [
+                    'to' => $email,
+                    'cc_count' => count($ccRecipients),
+                    'cc_emails' => array_column($ccRecipients, 'email')
+                ]);
+            }
 
             // Set from address if sender credentials provided
             if ($this->senderCredentials) {
@@ -212,6 +229,8 @@ class SendMassMailJob implements ShouldQueue
                 'to' => $email,
                 'subject' => $personalizedSubject,
                 'has_attachments' => !empty($attachments),
+                'has_cc' => !empty($ccRecipients),
+                'cc_count' => count($ccRecipients),
             ]);
         }
     }
@@ -251,6 +270,21 @@ class SendMassMailJob implements ShouldQueue
     }
 
     /**
+     * Get CC recipients for the recipient.
+     */
+    protected function getCcRecipients(array $recipient): array
+    {
+        $ccRecipients = [];
+
+        // Add auto-detected CC from CSV
+        if (isset($recipient['_auto_cc']) && is_array($recipient['_auto_cc'])) {
+            $ccRecipients = array_merge($ccRecipients, $recipient['_auto_cc']);
+        }
+
+        return $ccRecipients;
+    }
+
+    /**
      * Clean up attachment files after sending.
      */
     protected function cleanupAttachments(): void
@@ -259,18 +293,22 @@ class SendMassMailJob implements ShouldQueue
 
         if ($this->sameAttachmentForAll && is_array($this->globalAttachments)) {
             foreach ($this->globalAttachments as $attachment) {
-                if (isset($attachment['path']) && file_exists($attachment['path'])) {
+                if (isset($attachment['path']) && file_exists($attachment['path']) && !($attachment['auto_detected'] ?? false)) {
                     unlink($attachment['path']);
                     Log::info('Deleted global attachment file: ' . $attachment['path']);
+                } elseif (isset($attachment['auto_detected']) && $attachment['auto_detected']) {
+                    Log::info('Skipped deletion of auto-detected global attachment: ' . ($attachment['path'] ?? 'unknown'));
                 }
             }
         } else {
             foreach ($this->recipients as $recipient) {
                 if (isset($recipient['attachments']) && is_array($recipient['attachments'])) {
                     foreach ($recipient['attachments'] as $attachment) {
-                        if (isset($attachment['path']) && file_exists($attachment['path'])) {
+                        if (isset($attachment['path']) && file_exists($attachment['path']) && !($attachment['auto_detected'] ?? false)) {
                             unlink($attachment['path']);
                             Log::info('Deleted per-recipient attachment file: ' . $attachment['path']);
+                        } elseif (isset($attachment['auto_detected']) && $attachment['auto_detected']) {
+                            Log::info('Skipped deletion of auto-detected attachment: ' . ($attachment['path'] ?? 'unknown'));
                         }
                     }
                 }
