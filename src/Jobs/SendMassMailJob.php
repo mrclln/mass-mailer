@@ -52,6 +52,19 @@ class SendMassMailJob implements ShouldQueue
      */
     public function handle(): void
     {
+        // Log sender credentials at the start
+        Log::info('SendMassMailJob starting with sender credentials', [
+            'has_sender_credentials' => !empty($this->senderCredentials),
+            'sender_credentials' => $this->senderCredentials ? [
+                'name' => $this->senderCredentials['name'] ?? 'N/A',
+                'email' => $this->senderCredentials['email'] ?? 'N/A',
+                'host' => $this->senderCredentials['host'] ?? 'N/A',
+                'port' => $this->senderCredentials['port'] ?? 'N/A',
+                'username' => $this->senderCredentials['username'] ?? 'N/A',
+                'encryption' => $this->senderCredentials['encryption'] ?? 'N/A'
+            ] : 'None'
+        ]);
+
         // Set sender credentials if provided
         if ($this->senderCredentials) {
             $requiredKeys = ['host', 'port', 'username', 'password', 'encryption'];
@@ -61,9 +74,30 @@ class SendMassMailJob implements ShouldQueue
                     throw new \Exception("Missing required sender credential: {$key}");
                 }
             }
+
+            // Clear any cached mail configuration first
+            app()->forgetInstance('mail.manager');
+            app()->forgetInstance('mailer');
+
+            // Set the new SMTP configuration
             $currentMailConfig = config('mail.mailers.smtp');
-            config(['mail.mailers.smtp' => array_merge($currentMailConfig, $this->senderCredentials)]);
+            $newConfig = array_merge($currentMailConfig, $this->senderCredentials);
+            config(['mail.mailers.smtp' => $newConfig]);
             config(['mail.default' => 'smtp']);
+
+            // Also set the from address configuration
+            config([
+                'mail.from.address' => $this->senderCredentials['email'],
+                'mail.from.name' => $this->senderCredentials['name']
+            ]);
+
+            Log::info('SMTP configuration updated', [
+                'from_email' => config('mail.from.address'),
+                'from_name' => config('mail.from.name'),
+                'smtp_host' => config('mail.mailers.smtp.host'),
+                'smtp_port' => config('mail.mailers.smtp.port'),
+                'smtp_username' => config('mail.mailers.smtp.username')
+            ]);
         }
 
         // Debug: Log job execution
@@ -191,6 +225,24 @@ class SendMassMailJob implements ShouldQueue
                 $fromEmail = $this->senderCredentials['email'] ?? config('mail.from.address');
                 $fromName = $this->senderCredentials['name'] ?? config('mail.from.name');
                 $message->from($fromEmail, $fromName);
+
+                Log::info('Set from address', [
+                    'to' => $email,
+                    'from_email' => $fromEmail,
+                    'from_name' => $fromName,
+                    'sender_credentials_email' => $this->senderCredentials['email'] ?? 'N/A'
+                ]);
+            } else {
+                // Use default from address
+                $fromEmail = config('mail.from.address');
+                $fromName = config('mail.from.name');
+                $message->from($fromEmail, $fromName);
+
+                Log::info('Using default from address', [
+                    'to' => $email,
+                    'from_email' => $fromEmail,
+                    'from_name' => $fromName
+                ]);
             }
 
             // Use HTML template for body

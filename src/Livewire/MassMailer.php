@@ -396,10 +396,18 @@ class MassMailer extends Component
     $index = array_search($senderId, array_column($this->senders, 'id'));
     if ($index !== false) {
       $this->selectedSender = $index;
+
+      // Log the selected sender for debugging
+      Log::info('Sender selected', [
+        'sender_id' => $senderId,
+        'sender_index' => $index,
+        'sender_data' => $this->senders[$index]
+      ]);
+
       $successConfig = \mass_mailer_get_sweetalert_config('success');
       LivewireAlert::success()
           ->title($successConfig['title'] ?? 'Success!')
-          ->text('Sender email changed to: ' . $this->senders[$index]['name'])
+          ->text('Sender email changed to: ' . $this->senders[$index]['name'] . ' (' . $this->senders[$index]['email'] . ')')
           ->toast(true)->timer(3000)
           ->position('top-end')
           ->show();
@@ -707,8 +715,25 @@ class MassMailer extends Component
                       }
                   } else {
                       // For database senders, use the sender data directly
-                      $selectedSenderCredentials = $sender;
+                      $selectedSenderCredentials = [
+                          'name' => $sender['name'],
+                          'email' => $sender['email'],
+                          'host' => $sender['host'],
+                          'port' => $sender['port'],
+                          'username' => $sender['username'],
+                          'password' => $sender['password'],
+                          'encryption' => $sender['encryption'],
+                      ];
                   }
+
+                  // Log the selected sender credentials for debugging
+                  Log::info('Selected sender credentials prepared', [
+                      'sender_id' => $this->selectedSenderId,
+                      'sender_name' => $selectedSenderCredentials['name'],
+                      'sender_email' => $selectedSenderCredentials['email'],
+                      'is_config_sender' => str_starts_with($this->selectedSenderId, 'config_')
+                  ]);
+
                   break;
               }
           }
