@@ -687,11 +687,40 @@ class MassMailer extends Component
       if (config('mass-mailer.multiple_senders', false) && $this->selectedSenderId) {
           foreach ($this->senders as $sender) {
               if (($sender['id'] ?? null) == $this->selectedSenderId) {
-                  $selectedSenderCredentials = $sender;
+                  // For database senders, use the full sender data
+                  if (str_starts_with($this->selectedSenderId, 'config_')) {
+                      // For config senders, we need to get SMTP credentials from config
+                      $configSenders = config('mass-mailer.senders', []);
+                      $configIndex = (int) str_replace('config_', '', $this->selectedSenderId);
+                      if (isset($configSenders[$configIndex])) {
+                          $configSender = $configSenders[$configIndex];
+                          // Use default SMTP credentials from config or use the sender email
+                          $selectedSenderCredentials = [
+                              'name' => $configSender['name'],
+                              'email' => $configSender['email'],
+                              'host' => config('mail.mailers.smtp.host', 'smtp.gmail.com'),
+                              'port' => config('mail.mailers.smtp.port', 587),
+                              'username' => config('mail.mailers.smtp.username', $configSender['email']),
+                              'password' => config('mail.mailers.smtp.password', ''),
+                              'encryption' => config('mail.mailers.smtp.encryption', 'tls'),
+                          ];
+                      }
+                  } else {
+                      // For database senders, use the sender data directly
+                      $selectedSenderCredentials = $sender;
+                  }
                   break;
               }
           }
       }
+
+      Log::info('Selected sender credentials', [
+          'selectedSenderId' => $this->selectedSenderId,
+          'hasCredentials' => !empty($selectedSenderCredentials),
+          'hasEmail' => isset($selectedSenderCredentials['email']),
+          'hasHost' => isset($selectedSenderCredentials['host']),
+          'credentialsKeys' => $selectedSenderCredentials ? array_keys($selectedSenderCredentials) : []
+      ]);
 
       // Dispatch the job with configured queue
       SendMassMailJob::dispatch(

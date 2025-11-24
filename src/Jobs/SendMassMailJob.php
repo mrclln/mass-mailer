@@ -54,6 +54,14 @@ class SendMassMailJob implements ShouldQueue
     {
         // Set sender credentials if provided
         if ($this->senderCredentials) {
+            Log::info('Processing sender credentials', [
+                'has_credentials' => true,
+                'credential_keys' => array_keys($this->senderCredentials),
+                'has_email' => isset($this->senderCredentials['email']),
+                'has_name' => isset($this->senderCredentials['name']),
+                'has_host' => isset($this->senderCredentials['host']),
+            ]);
+
             $requiredKeys = ['host', 'port', 'username', 'password', 'encryption'];
             foreach ($requiredKeys as $key) {
                 if (!isset($this->senderCredentials[$key])) {
@@ -70,6 +78,8 @@ class SendMassMailJob implements ShouldQueue
                 'username' => config('mail.mailers.smtp.username'),
                 'encryption' => config('mail.mailers.smtp.encryption'),
             ]);
+        } else {
+            Log::info('No sender credentials provided, using default mail config');
         }
 
         // Debug: Log job execution
@@ -197,6 +207,16 @@ class SendMassMailJob implements ShouldQueue
                 $fromEmail = $this->senderCredentials['email'] ?? config('mail.from.address');
                 $fromName = $this->senderCredentials['name'] ?? config('mail.from.name');
                 $message->from($fromEmail, $fromName);
+                Log::info('Set custom from address', [
+                    'fromEmail' => $fromEmail,
+                    'fromName' => $fromName,
+                    'using_sender_credentials' => true
+                ]);
+            } else {
+                Log::info('Using default from address', [
+                    'default_from' => config('mail.from.address'),
+                    'default_name' => config('mail.from.name')
+                ]);
             }
 
             // Use HTML template for body
