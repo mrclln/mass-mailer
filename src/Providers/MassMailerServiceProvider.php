@@ -5,6 +5,7 @@ namespace Mrclln\MassMailer\Providers;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Mrclln\MassMailer\Livewire\MassMailer;
+use Mrclln\MassMailer\Livewire\MassMailerLogs;
 
 class MassMailerServiceProvider extends ServiceProvider
 {
@@ -45,9 +46,10 @@ class MassMailerServiceProvider extends ServiceProvider
             __DIR__.'/../Migrations' => database_path('migrations'),
         ], 'mass-mailer-migrations');
 
-        // Register Livewire component
+        // Register Livewire components
         if (class_exists(\Livewire\Livewire::class)) {
            Livewire::component('mass-mailer', MassMailer::class);
+           Livewire::component('mass-mailer-logs', MassMailerLogs::class);
         }
 
         // Register Blade components

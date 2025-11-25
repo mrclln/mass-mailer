@@ -7,6 +7,7 @@ use Livewire\Attributes\On;
 use Mrclln\MassMailer\Jobs\SendMassMailJob;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Jantinnerezo\LivewireAlert\Facades\LivewireAlert;
 
 class MassMailer extends Component
@@ -702,15 +703,15 @@ class MassMailer extends Component
                       $configIndex = (int) str_replace('config_', '', $this->selectedSenderId);
                       if (isset($configSenders[$configIndex])) {
                           $configSender = $configSenders[$configIndex];
-                          // Use default SMTP credentials from config or use the sender email
+                          // Use the sender's own credentials from config, not the default mail config
                           $selectedSenderCredentials = [
                               'name' => $configSender['name'],
                               'email' => $configSender['email'],
-                              'host' => config('mail.mailers.smtp.host', 'smtp.gmail.com'),
-                              'port' => config('mail.mailers.smtp.port', 587),
-                              'username' => config('mail.mailers.smtp.username', $configSender['email']),
-                              'password' => config('mail.mailers.smtp.password', ''),
-                              'encryption' => config('mail.mailers.smtp.encryption', 'tls'),
+                              'host' => $configSender['host'] ?? config('mail.mailers.smtp.host', 'smtp.gmail.com'),
+                              'port' => $configSender['port'] ?? config('mail.mailers.smtp.port', 587),
+                              'username' => $configSender['username'] ?? $configSender['email'],
+                              'password' => $configSender['password'] ?? '',
+                              'encryption' => $configSender['encryption'] ?? config('mail.mailers.smtp.encryption', 'tls'),
                           ];
                       }
                   } else {
@@ -724,6 +725,46 @@ class MassMailer extends Component
                           'password' => $sender['password'],
                           'encryption' => $sender['encryption'],
                       ];
+                  }
+
+                  // Validate that all required sender credentials are present and not empty
+                  $requiredKeys = ['host', 'port', 'username', 'password', 'encryption'];
+                  $missingKeys = [];
+                  $emptyKeys = [];
+
+                  foreach ($requiredKeys as $key) {
+                      if (!isset($selectedSenderCredentials[$key])) {
+                          $missingKeys[] = $key;
+                      } elseif (empty($selectedSenderCredentials[$key])) {
+                          $emptyKeys[] = $key;
+                      }
+                  }
+
+                  if (!empty($missingKeys) || !empty($emptyKeys)) {
+                      $errorMessage = 'Sender credentials are incomplete. ';
+                      if (!empty($missingKeys)) {
+                          $errorMessage .= 'Missing keys: ' . implode(', ', $missingKeys) . '. ';
+                      }
+                      if (!empty($emptyKeys)) {
+                          $errorMessage .= 'Empty keys: ' . implode(', ', $emptyKeys) . '. ';
+                      }
+                      $errorMessage .= 'Please check the sender configuration.';
+
+                      Log::error('Sender credentials validation failed', [
+                          'sender_id' => $this->selectedSenderId,
+                          'missing_keys' => $missingKeys,
+                          'empty_keys' => $emptyKeys,
+                          'credentials' => $selectedSenderCredentials
+                      ]);
+
+                      $errorConfig = \mass_mailer_get_sweetalert_config('error');
+                      LivewireAlert::error()
+                          ->title($errorConfig['title'] ?? 'Configuration Error!')
+                          ->text($errorMessage)
+                          ->show();
+
+                      $this->sending = false;
+                      return;
                   }
 
                   // Log the selected sender credentials for debugging
@@ -748,7 +789,8 @@ class MassMailer extends Component
         $this->body,
         $this->sameAttachmentForAll ? $storedGlobalAttachments : null,
         $this->sameAttachmentForAll,
-        $selectedSenderCredentials
+        $selectedSenderCredentials,
+        auth()->id()
       )->onQueue(config('mass-mailer.queue.name', 'mass-mailer'));
 
       // Log the action if logging is enabled
@@ -839,6 +881,16 @@ class MassMailer extends Component
       'newSenderEncryption' => 'required|string|in:tls,ssl',
     ]);
 
+    // Test the SMTP credentials before saving
+    if (!$this->testSenderCredentials()) {
+      $errorConfig = \mass_mailer_get_sweetalert_config('error');
+      LivewireAlert::error()
+          ->title($errorConfig['title'] ?? 'Invalid Credentials!')
+          ->text('The SMTP credentials are invalid. Please check your settings and try again.')
+          ->show();
+      return;
+    }
+
     try {
       $senderModel = config('mass-mailer.sender_model', \Mrclln\MassMailer\Models\MassMailerSender::class);
 
@@ -879,6 +931,89 @@ class MassMailer extends Component
           ->title($errorConfig['title'] ?? 'Error!')
           ->text('Failed to save new sender. Please try again.')
           ->show();
+    }
+  }
+
+  /**
+   * Test the SMTP credentials by sending a test email to the sender's own email address
+   */
+  protected function testSenderCredentials(): bool
+  {
+    try {
+      // Clear any cached mail configuration first
+      app()->forgetInstance('mail.manager');
+      app()->forgetInstance('mailer');
+
+      // Configure temporary SMTP settings for testing
+      $tempConfig = [
+        'host' => $this->newSenderHost,
+        'port' => $this->newSenderPort,
+        'username' => $this->newSenderUsername,
+        'password' => $this->newSenderPassword,
+        'encryption' => $this->newSenderEncryption,
+        'transport' => 'smtp',
+      ];
+
+      // Set the temporary configuration
+      config(['mail.mailers.smtp' => $tempConfig]);
+      config(['mail.default' => 'smtp']);
+
+      // Set the from address to match the sender
+      config([
+        'mail.from.address' => $this->newSenderEmail,
+        'mail.from.name' => $this->newSenderName
+      ]);
+
+      // Create a test email
+      $testSubject = 'Mass Mailer - Test Email';
+      $testBody = '
+        <html>
+          <body>
+            <h2>Email Configuration Test</h2>
+            <p>This is a test email to verify your SMTP configuration for the Mass Mailer application.</p>
+            <p><strong>Sender:</strong> ' . htmlspecialchars($this->newSenderName) . ' (' . htmlspecialchars($this->newSenderEmail) . ')</p>
+            <p><strong>SMTP Server:</strong> ' . htmlspecialchars($this->newSenderHost) . ':' . $this->newSenderPort . ' (' . strtoupper($this->newSenderEncryption) . ')</p>
+            <p><strong>Timestamp:</strong> ' . now()->toDateTimeString() . '</p>
+            <p>If you received this email, your SMTP configuration is working correctly!</p>
+          </body>
+        </html>
+      ';
+
+      // Try to send the test email
+      Mail::html($testBody, function ($message) {
+        $message->to($this->newSenderEmail, $this->newSenderName)
+                ->subject('Mass Mailer - Test Email')
+                ->from($this->newSenderEmail, $this->newSenderName);
+      });
+
+      Log::info('Test email sent successfully', [
+        'email' => $this->newSenderEmail,
+        'host' => $this->newSenderHost,
+        'port' => $this->newSenderPort,
+        'encryption' => $this->newSenderEncryption
+      ]);
+
+      return true;
+
+    } catch (\Swift_TransportException $e) {
+      Log::error('SMTP transport error during sender credential test', [
+        'email' => $this->newSenderEmail,
+        'host' => $this->newSenderHost,
+        'port' => $this->newSenderPort,
+        'error' => $e->getMessage()
+      ]);
+
+      return false;
+
+    } catch (\Exception $e) {
+      Log::error('General error during sender credential test', [
+        'email' => $this->newSenderEmail,
+        'host' => $this->newSenderHost,
+        'port' => $this->newSenderPort,
+        'error' => $e->getMessage()
+      ]);
+
+      return false;
     }
   }
 

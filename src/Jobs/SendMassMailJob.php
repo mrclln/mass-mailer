@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\View;
 use Mrclln\MassMailer\Mail\MassMailerMail;
+use Mrclln\MassMailer\Models\MassMailerLog;
 
 class SendMassMailJob implements ShouldQueue
 {
@@ -26,6 +27,7 @@ class SendMassMailJob implements ShouldQueue
     protected $globalAttachments;
     protected $sameAttachmentForAll;
     protected $senderCredentials;
+    protected $userId;
 
     /**
      * Create a new job instance.
@@ -36,7 +38,8 @@ class SendMassMailJob implements ShouldQueue
         string $body,
         ?array $globalAttachments = null,
         bool $sameAttachmentForAll = true,
-        ?array $senderCredentials = null
+        ?array $senderCredentials = null,
+        ?int $userId = null
     ) {
         $this->recipients = $recipients;
         $this->subject = $subject;
@@ -44,6 +47,7 @@ class SendMassMailJob implements ShouldQueue
         $this->globalAttachments = $globalAttachments;
         $this->sameAttachmentForAll = $sameAttachmentForAll;
         $this->senderCredentials = $senderCredentials;
+        $this->userId = $userId;
 
     }
 
@@ -52,19 +56,6 @@ class SendMassMailJob implements ShouldQueue
      */
     public function handle(): void
     {
-        // Log sender credentials at the start
-        Log::info('SendMassMailJob starting with sender credentials', [
-            'has_sender_credentials' => !empty($this->senderCredentials),
-            'sender_credentials' => $this->senderCredentials ? [
-                'name' => $this->senderCredentials['name'] ?? 'N/A',
-                'email' => $this->senderCredentials['email'] ?? 'N/A',
-                'host' => $this->senderCredentials['host'] ?? 'N/A',
-                'port' => $this->senderCredentials['port'] ?? 'N/A',
-                'username' => $this->senderCredentials['username'] ?? 'N/A',
-                'encryption' => $this->senderCredentials['encryption'] ?? 'N/A'
-            ] : 'None'
-        ]);
-
         // Set sender credentials if provided
         if ($this->senderCredentials) {
             $requiredKeys = ['host', 'port', 'username', 'password', 'encryption'];
@@ -90,25 +81,7 @@ class SendMassMailJob implements ShouldQueue
                 'mail.from.address' => $this->senderCredentials['email'],
                 'mail.from.name' => $this->senderCredentials['name']
             ]);
-
-            Log::info('SMTP configuration updated', [
-                'from_email' => config('mail.from.address'),
-                'from_name' => config('mail.from.name'),
-                'smtp_host' => config('mail.mailers.smtp.host'),
-                'smtp_port' => config('mail.mailers.smtp.port'),
-                'smtp_username' => config('mail.mailers.smtp.username')
-            ]);
         }
-
-        // Debug: Log job execution
-        Log::info('SendMassMailJob started', [
-            'recipient_count' => count($this->recipients),
-            'subject' => $this->subject,
-            'same_attachment' => $this->sameAttachmentForAll,
-            'global_attachments_count' => $this->globalAttachments ? count($this->globalAttachments) : 0,
-            'first_recipient' => !empty($this->recipients) ? $this->recipients[0] : null,
-            'sender_credentials' => $this->senderCredentials ? 'provided' : 'default'
-        ]);
 
         $batchSize = config('mass-mailer.batch_size', 50);
         $recipients = collect($this->recipients);
@@ -168,17 +141,6 @@ class SendMassMailJob implements ShouldQueue
             return;
         }
 
-        // Debug: Log recipient processing
-        Log::info('Processing recipient', [
-            'email' => $email,
-            'recipient_data' => $recipient,
-            'has_attachments' => isset($recipient['attachments']) && !empty($recipient['attachments']),
-            'sender_credentials_received' => $senderCredentials ? [
-                'name' => $senderCredentials['name'],
-                'email' => $senderCredentials['email']
-            ] : 'None'
-        ]);
-
         // Prepare personalized content
         $personalizedSubject = $this->personalizeContent($this->subject, $recipient);
         $personalizedBody = $this->personalizeContent($this->body, $recipient);
@@ -189,101 +151,108 @@ class SendMassMailJob implements ShouldQueue
         // Prepare CC recipients
         $ccRecipients = $this->getCcRecipients($recipient);
 
-        Log::info('Sending email', [
-            'to' => $email,
-            'subject' => $personalizedSubject,
-            'attachments_count' => count($attachments),
-            'attachment_paths' => array_column($attachments, 'path'),
-            'cc_count' => count($ccRecipients),
-            'cc_emails' => array_column($ccRecipients, 'email')
-        ]);
-
         // Check if email view exists
         if (!View::exists('mass-mailer::emails.mass-mail')) {
             Log::error('Email view does not exist: mass-mailer::emails.mass-mail');
             throw new \Exception('Email view does not exist');
         }
 
-        // Log SMTP connection attempt
-        Log::info('Attempting SMTP connection for email send', ['to' => $email]);
+        // Create log entry for this email
+        $logEntry = MassMailerLog::logEmailPending(
+            $email,
+            $personalizedSubject,
+            $personalizedBody,
+            $recipient,
+            $attachments,
+            $this->userId,
+            $this->job?->getJobId()
+        );
 
-        // Send the email using direct Mail::send for better attachment handling
-        Mail::send([], [], function ($message) use ($email, $personalizedSubject, $personalizedBody, $attachments, $ccRecipients, $senderCredentials) {
-            $message->to($email)
-                ->subject($personalizedSubject);
+        try {
+            // Send the email using direct Mail::send for better attachment handling
+            Mail::send([], [], function ($message) use ($email, $personalizedSubject, $personalizedBody, $attachments, $ccRecipients, $senderCredentials) {
+                $message->to($email)
+                    ->subject($personalizedSubject);
 
-            // Add CC recipients if any
-            if (!empty($ccRecipients)) {
-                foreach ($ccRecipients as $ccRecipient) {
-                    $message->cc($ccRecipient['email']);
+                // Add CC recipients if any
+                if (!empty($ccRecipients)) {
+                    foreach ($ccRecipients as $ccRecipient) {
+                        $message->cc($ccRecipient['email']);
+                    }
                 }
-                Log::info('Added CC recipients', [
-                    'to' => $email,
-                    'cc_count' => count($ccRecipients),
-                    'cc_emails' => array_column($ccRecipients, 'email')
-                ]);
-            }
 
-            // Set from address if sender credentials provided
-            if ($senderCredentials) {
-                $fromEmail = $senderCredentials['email'] ?? config('mail.from.address');
-                $fromName = $senderCredentials['name'] ?? config('mail.from.name');
-                $message->from($fromEmail, $fromName);
-
-                Log::info('Set from address', [
-                    'to' => $email,
-                    'from_email' => $fromEmail,
-                    'from_name' => $fromName,
-                    'sender_credentials_email' => $senderCredentials['email'] ?? 'N/A',
-                    'sender_credentials_name' => $senderCredentials['name'] ?? 'N/A',
-                    'all_sender_credentials' => $senderCredentials
-                ]);
-            } else {
-                // Use default from address
-                $fromEmail = config('mail.from.address');
-                $fromName = config('mail.from.name');
-                $message->from($fromEmail, $fromName);
-
-                Log::info('Using default from address', [
-                    'to' => $email,
-                    'from_email' => $fromEmail,
-                    'from_name' => $fromName
-                ]);
-            }
-
-            // Use HTML template for body
-            $htmlBody = view('mass-mailer::emails.mass-mail', [
-                'subject' => $personalizedSubject,
-                'body' => $personalizedBody
-            ])->render();
-
-            $message->html($htmlBody);
-
-            // Attach files
-            foreach ($attachments as $attachment) {
-                if (isset($attachment['path']) && file_exists($attachment['path'])) {
-                    $message->attach($attachment['path'], [
-                        'as' => $attachment['name'] ?? basename($attachment['path']),
-                        'mime' => $attachment['mime'] ?? 'application/octet-stream',
-                    ]);
+                // Set from address if sender credentials provided
+                if ($senderCredentials) {
+                    $fromEmail = $senderCredentials['email'] ?? config('mail.from.address');
+                    $fromName = $senderCredentials['name'] ?? config('mail.from.name');
+                    $message->from($fromEmail, $fromName);
                 } else {
-                    Log::warning('Attachment file not found', [
-                        'path' => $attachment['path'] ?? 'null',
-                        'exists' => isset($attachment['path']) ? file_exists($attachment['path']) : false
-                    ]);
+                    // Use default from address
+                    $fromEmail = config('mail.from.address');
+                    $fromName = config('mail.from.name');
+                    $message->from($fromEmail, $fromName);
                 }
-            }
-        });
 
-        // Log successful send
-        if (config('mass-mailer.logging.enabled', true)) {
-            Log::info('Email sent successfully', [
-                'to' => $email,
-                'subject' => $personalizedSubject,
-                'has_attachments' => !empty($attachments),
-                'has_cc' => !empty($ccRecipients),
-                'cc_count' => count($ccRecipients),
+                // Use HTML template for body
+                $htmlBody = view('mass-mailer::emails.mass-mail', [
+                    'subject' => $personalizedSubject,
+                    'body' => $personalizedBody
+                ])->render();
+
+                $message->html($htmlBody);
+
+                // Attach files
+                foreach ($attachments as $attachment) {
+                    if (isset($attachment['path']) && file_exists($attachment['path'])) {
+                        $message->attach($attachment['path'], [
+                            'as' => $attachment['name'] ?? basename($attachment['path']),
+                            'mime' => $attachment['mime'] ?? 'application/octet-stream',
+                        ]);
+                    } else {
+                        Log::warning('Attachment file not found', [
+                            'path' => $attachment['path'] ?? 'null',
+                            'exists' => isset($attachment['path']) ? file_exists($attachment['path']) : false
+                        ]);
+                    }
+                }
+            });
+
+            // Update log entry as sent
+            $logEntry->update([
+                'status' => 'sent',
+                'sent_at' => now()
             ]);
+
+            // Log successful send
+            if (config('mass-mailer.logging.enabled', true)) {
+                Log::info('Email sent successfully', [
+                    'recipient' => $email,
+                    'subject' => $personalizedSubject,
+                    'user_id' => $this->userId,
+                    'log_id' => $logEntry->id
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            // Update log entry as failed
+            $logEntry->update([
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+                'attempts' => $this->attempts()
+            ]);
+
+            // Log the error
+            Log::error('Email sending failed', [
+                'recipient' => $email,
+                'subject' => $personalizedSubject,
+                'error' => $e->getMessage(),
+                'user_id' => $this->userId,
+                'log_id' => $logEntry->id,
+                'attempts' => $this->attempts()
+            ]);
+
+            // Re-throw the exception to trigger job retry logic
+            throw $e;
         }
     }
 
@@ -390,12 +359,14 @@ class SendMassMailJob implements ShouldQueue
                 'recipient' => $email,
                 'error' => $e->getMessage(),
                 'attempt' => $this->attempts(),
+                'user_id' => $this->userId,
             ]);
         } else {
             Log::error('Failed to send mass mail to recipient', [
                 'recipient' => $email,
                 'error' => $e->getMessage(),
                 'attempt' => $this->attempts(),
+                'user_id' => $this->userId,
             ]);
         }
 
@@ -412,11 +383,25 @@ class SendMassMailJob implements ShouldQueue
     {
         // This could be stored in a database table if logging is enabled
         if (config('mass-mailer.logging.enabled', true)) {
-            // For now, just log it. In a real implementation, you might create a failed_emails table
+            // Update or create log entry for permanently failed email
+            MassMailerLog::logEmailFailed(
+                $recipient['email'] ?? 'unknown',
+                $this->subject,
+                $e->getMessage(),
+                $this->body,
+                $recipient,
+                $this->prepareAttachments($recipient),
+                $this->userId,
+                $this->job?->getJobId(),
+                $this->attempts()
+            );
+
             Log::warning('Email failed permanently', [
-                'recipient' => $recipient,
+                'recipient' => $recipient['email'] ?? 'unknown',
                 'error' => $e->getMessage(),
-                'job_id' => $this->job->getJobId(),
+                'job_id' => $this->job?->getJobId(),
+                'user_id' => $this->userId,
+                'attempts' => $this->attempts(),
             ]);
         }
     }
