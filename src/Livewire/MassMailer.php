@@ -233,6 +233,10 @@ class MassMailer extends Component
       $attachmentPaths = [];
       $ccEmails = [];
 
+      // Initialize variables to prevent scope issues
+      $currentAttachmentPaths = [];
+      $currentCcEmails = [];
+
       // Fill fields based on CSV columns
       foreach ($cleanHeaders as $index => $fieldName) {
         if (isset($row[$index])) {
@@ -243,12 +247,12 @@ class MassMailer extends Component
             // Split comma-separated file paths
             $filePaths = array_map('trim', explode(',', $value));
             $recipient[$fieldName] = $value; // Store original value for template variables
-            $attachmentPaths = $this->processAttachmentPaths($filePaths, $i);
+            $currentAttachmentPaths = $this->processAttachmentPaths($filePaths, $i - 1);
             Log::info('Processed attachment paths', [
               'recipient_index' => $i - 1,
               'original_value' => $value,
               'file_paths' => $filePaths,
-              'processed_attachments' => $attachmentPaths
+              'processed_attachments' => $currentAttachmentPaths
             ]);
           }
           // Process CC column
@@ -256,12 +260,12 @@ class MassMailer extends Component
             // Split comma-separated email addresses
             $emailAddresses = array_map('trim', explode(',', $value));
             $recipient[$fieldName] = $value; // Store original value for template variables
-            $ccEmails = $this->processCcEmails($emailAddresses, $i);
+            $currentCcEmails = $this->processCcEmails($emailAddresses, $i - 1);
             Log::info('Processed CC emails', [
               'recipient_index' => $i - 1,
               'original_value' => $value,
               'email_addresses' => $emailAddresses,
-              'processed_cc' => $ccEmails
+              'processed_cc' => $currentCcEmails
             ]);
           }
           else {
@@ -273,8 +277,8 @@ class MassMailer extends Component
       // Only add if we have at least an email
       if (!empty($recipient['email'])) {
         // Store attachment paths and CC emails in separate properties for processing
-        $recipient['_auto_attachments'] = $attachmentPaths;
-        $recipient['_auto_cc'] = $ccEmails;
+        $recipient['_auto_attachments'] = $currentAttachmentPaths;
+        $recipient['_auto_cc'] = $currentCcEmails;
         $parsedRecipients[] = $recipient;
         Log::info('Added recipient from CSV row', ['recipient' => $recipient]);
       }
@@ -297,25 +301,30 @@ class MassMailer extends Component
           $recipient = [];
           $attachmentPaths = [];
           $ccEmails = [];
+
+          // Initialize variables to prevent scope issues
+          $currentAttachmentPaths = [];
+          $currentCcEmails = [];
+
           foreach ($cleanHeaders as $index => $header) {
             $value = trim($row[$index] ?? '');
             if ($header === 'attachments' && !empty($value)) {
               $filePaths = array_map('trim', explode(',', $value));
               $recipient[$header] = $value; // Store original value for template variables
-              $attachmentPaths = $this->processAttachmentPaths($filePaths, $i - 1);
+              $currentAttachmentPaths = $this->processAttachmentPaths($filePaths, $i - 1);
             }
             elseif ($header === 'cc' && !empty($value)) {
               $emailAddresses = array_map('trim', explode(',', $value));
               $recipient[$header] = $value; // Store original value for template variables
-              $ccEmails = $this->processCcEmails($emailAddresses, $i - 1);
+              $currentCcEmails = $this->processCcEmails($emailAddresses, $i - 1);
             }
             else {
               $recipient[$header] = $value;
             }
           }
           if (!empty($recipient['email'])) {
-            $recipient['_auto_attachments'] = $attachmentPaths;
-            $recipient['_auto_cc'] = $ccEmails;
+            $recipient['_auto_attachments'] = $currentAttachmentPaths;
+            $recipient['_auto_cc'] = $currentCcEmails;
             $parsedRecipients[] = $recipient;
           }
         }
