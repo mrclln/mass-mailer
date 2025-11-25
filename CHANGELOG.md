@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-11-25
+
+### New Release - Automatic File Upload from CSV
+
+This release introduces automatic file upload functionality to solve cross-platform compatibility issues between Windows development and Linux production environments.
+
+### Added
+- **Automatic File Upload from CSV**: New feature that automatically uploads files referenced in CSV when they're not found on the server
+- **Cross-Platform Compatibility**: Solves file path issues between Windows (`C:\path\file.pdf`) and Linux (`/path/file.pdf`) environments
+- **Network Drive Support**: Handles files accessible via network drives and shared folders
+- **Temporary File Storage**: Uploaded files stored temporarily in `storage/app/temp_attachments/` with automatic cleanup
+- **Smart Upload Detection**: Only attempts upload for files that don't exist on server but are accessible
+- **Configuration Control**: Enable/disable auto-upload via `MASS_MAILER_AUTO_UPLOAD_FROM_CSV` environment variable
+- **Configurable Cleanup**: Customizable cleanup timeout via `MASS_MAILER_TEMP_CLEANUP_HOURS` (default: 1 hour)
+- **Enhanced Logging**: Comprehensive tracking of upload attempts, successes, and failures
+- **Test Script**: Added `test-auto-file-upload.php` for testing and validation
+- **Documentation**: Complete `AUTO_UPLOAD_FROM_CSV.md` guide with usage examples and troubleshooting
+
+### Enhanced
+- **CSV Processing**: Enhanced `processAttachmentPaths()` method with automatic upload fallback
+- **File Handling**: Improved file existence checks with upload attempt for missing files
+- **Job Cleanup**: Enhanced `SendMassMailJob` cleanup process to handle uploaded temporary files
+- **Error Handling**: Better error handling and logging for file upload scenarios
+- **Backward Compatibility**: All existing functionality preserved, new feature is opt-in
+
+### Technical Features
+- **Upload Method**: New `tryUploadAttachmentFile()` method handles file reading and server storage
+- **Temporary Storage**: Unique filename generation with `uniqid()` for collision prevention
+- **Memory Management**: Efficient file reading and storage without memory leaks
+- **Permission Handling**: Proper error handling for file access and permission issues
+- **Cleanup Automation**: Automatic deletion of temporary files after configurable timeout
+- **File Type Support**: Works with all supported attachment types (PDF, DOC, images, etc.)
+
+### Configuration Options
+```env
+MASS_MAILER_AUTO_UPLOAD_FROM_CSV=true
+MASS_MAILER_TEMP_CLEANUP_HOURS=1
+MASS_MAILER_MAX_ATTACHMENT_SIZE=1024
+```
+
+### Files Added
+- `AUTO_UPLOAD_FROM_CSV.md` - Comprehensive documentation
+- `test-auto-file-upload.php` - Test script for functionality validation
+
+### Files Modified
+- `src/Livewire/MassMailer.php` - Enhanced CSV processing and new upload method
+- `src/Jobs/SendMassMailJob.php` - Updated cleanup for uploaded files
+- `src/Config/mass-mailer.php` - Added auto-upload configuration options
+- `composer.json` - Version updated to 2.1.0 and enhanced description
+- `CHANGELOG.md` - Added v2.1.0 release notes
+
+### Benefits
+- **Cross-Platform**: Works seamlessly between Windows development and Linux production
+- **Network Friendly**: Supports files on network drives and shared folders
+- **Zero Configuration**: Works out-of-the-box with sensible defaults
+- **Graceful Degradation**: Falls back to original behavior if files can't be uploaded
+- **Automatic Cleanup**: Prevents server file accumulation with configurable timeout
+
 ## [2.0.0] - 2025-11-25
 
 ### Major Release - Complete Mass Mailer Package

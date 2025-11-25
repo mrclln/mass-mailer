@@ -29,6 +29,8 @@ return [
         'max_size' => env('MASS_MAILER_MAX_ATTACHMENT_SIZE', 1024), // KB (1MB)
         'allowed_types' => ['pdf', 'doc', 'docx', 'txt', 'jpg', 'jpeg', 'png'],
         'storage_disk' => env('MASS_MAILER_STORAGE_DISK', 'public'),
+        'auto_upload_from_csv' => env('MASS_MAILER_AUTO_UPLOAD_FROM_CSV', true), // Enable auto-upload of files referenced in CSV
+        'temp_cleanup_hours' => env('MASS_MAILER_TEMP_CLEANUP_HOURS', 1), // Hours before temp files are cleaned up
     ],
 
     'templates' => [

@@ -464,7 +464,18 @@ class MassMailer extends Component
           'file_path' => $filePath,
           'exists' => false
         ]);
-        continue;
+
+        // Try to upload the file if auto-upload is enabled and file is accessible
+        if (config('mass-mailer.attachments.auto_upload_from_csv', true)) {
+          $uploadedFilePath = $this->tryUploadAttachmentFile($filePath, $recipientIndex);
+          if ($uploadedFilePath) {
+            $filePath = $uploadedFilePath;
+          } else {
+            continue;
+          }
+        } else {
+          continue;
+        }
       }
 
       // Get file information
@@ -489,7 +500,8 @@ class MassMailer extends Component
         'name' => $fileName,
         'mime' => $mimeType,
         'original_path' => $filePath, // Keep original for reference
-        'auto_detected' => true
+        'auto_detected' => true,
+        'uploaded' => isset($uploadedFilePath) && $uploadedFilePath !== $filePath
       ];
 
       Log::info('Processed auto-detected attachment', [
@@ -497,11 +509,96 @@ class MassMailer extends Component
         'file_path' => $filePath,
         'file_name' => $fileName,
         'mime_type' => $mimeType,
-        'file_size' => $fileSize
+        'file_size' => $fileSize,
+        'was_uploaded' => isset($uploadedFilePath) && $uploadedFilePath !== $filePath
       ]);
     }
 
     return $processedAttachments;
+  }
+
+  /**
+   * Try to upload an attachment file from a local path to the server.
+   * This handles cases where CSV contains paths that might be accessible
+   * via network drives or shared folders.
+   *
+   * @param string $filePath The original file path from CSV
+   * @param int $recipientIndex Index of the recipient for logging
+   * @return string|null The server-side path if successful, null otherwise
+   */
+  protected function tryUploadAttachmentFile(string $filePath, int $recipientIndex): ?string
+  {
+    try {
+      // Check if file exists locally (might be network drive or shared folder)
+      if (!file_exists($filePath)) {
+        Log::info('File not accessible for upload', [
+          'recipient_index' => $recipientIndex,
+          'file_path' => $filePath,
+          'accessible' => false
+        ]);
+        return null;
+      }
+
+      // Check if we can read the file
+      if (!is_readable($filePath)) {
+        Log::warning('File exists but is not readable', [
+          'recipient_index' => $recipientIndex,
+          'file_path' => $filePath
+        ]);
+        return null;
+      }
+
+      // Read file content
+      $fileContent = file_get_contents($filePath);
+      if ($fileContent === false) {
+        Log::warning('Failed to read file content', [
+          'recipient_index' => $recipientIndex,
+          'file_path' => $filePath
+        ]);
+        return null;
+      }
+
+      // Generate unique filename for temporary storage
+      $fileName = basename($filePath);
+      $extension = pathinfo($fileName, PATHINFO_EXTENSION);
+      $baseName = pathinfo($fileName, PATHINFO_FILENAME);
+      $uniqueName = $baseName . '_' . uniqid() . '.' . $extension;
+
+      // Create temporary storage directory
+      $tempDir = storage_path('app/temp_attachments');
+      if (!is_dir($tempDir)) {
+        mkdir($tempDir, 0755, true);
+      }
+
+      $tempFilePath = $tempDir . '/' . $uniqueName;
+
+      // Save file to temporary location
+      if (file_put_contents($tempFilePath, $fileContent) === false) {
+        Log::warning('Failed to save uploaded file', [
+          'recipient_index' => $recipientIndex,
+          'file_path' => $filePath,
+          'temp_path' => $tempFilePath
+        ]);
+        return null;
+      }
+
+      Log::info('Successfully uploaded attachment file', [
+        'recipient_index' => $recipientIndex,
+        'original_path' => $filePath,
+        'uploaded_path' => $tempFilePath,
+        'file_size' => filesize($tempFilePath)
+      ]);
+
+      return $tempFilePath;
+
+    } catch (\Exception $e) {
+      Log::error('Exception during file upload', [
+        'recipient_index' => $recipientIndex,
+        'file_path' => $filePath,
+        'error' => $e->getMessage()
+      ]);
+      return null;
+    }
   }
 
   /**

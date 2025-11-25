@@ -324,26 +324,76 @@ class SendMassMailJob implements ShouldQueue
 
         if ($this->sameAttachmentForAll && is_array($this->globalAttachments)) {
             foreach ($this->globalAttachments as $attachment) {
-                if (isset($attachment['path']) && file_exists($attachment['path']) && !($attachment['auto_detected'] ?? false)) {
-                    unlink($attachment['path']);
-                    Log::info('Deleted global attachment file: ' . $attachment['path']);
-                } elseif (isset($attachment['auto_detected']) && $attachment['auto_detected']) {
-                    Log::info('Skipped deletion of auto-detected global attachment: ' . ($attachment['path'] ?? 'unknown'));
+                if (isset($attachment['path']) && file_exists($attachment['path'])) {
+                    // Delete uploaded files (not original auto-detected files)
+                    if ($attachment['uploaded'] ?? false) {
+                        unlink($attachment['path']);
+                        Log::info('Deleted uploaded global attachment file: ' . $attachment['path']);
+                    } elseif (!($attachment['auto_detected'] ?? false)) {
+                        // Delete regular uploaded files
+                        unlink($attachment['path']);
+                        Log::info('Deleted global attachment file: ' . $attachment['path']);
+                    } else {
+                        Log::info('Skipped deletion of auto-detected global attachment: ' . ($attachment['path'] ?? 'unknown'));
+                    }
                 }
             }
         } else {
             foreach ($this->recipients as $recipient) {
                 if (isset($recipient['attachments']) && is_array($recipient['attachments'])) {
                     foreach ($recipient['attachments'] as $attachment) {
-                        if (isset($attachment['path']) && file_exists($attachment['path']) && !($attachment['auto_detected'] ?? false)) {
-                            unlink($attachment['path']);
-                            Log::info('Deleted per-recipient attachment file: ' . $attachment['path']);
-                        } elseif (isset($attachment['auto_detected']) && $attachment['auto_detected']) {
-                            Log::info('Skipped deletion of auto-detected attachment: ' . ($attachment['path'] ?? 'unknown'));
+                        if (isset($attachment['path']) && file_exists($attachment['path'])) {
+                            // Delete uploaded files (not original auto-detected files)
+                            if ($attachment['uploaded'] ?? false) {
+                                unlink($attachment['path']);
+                                Log::info('Deleted uploaded per-recipient attachment file: ' . $attachment['path']);
+                            } elseif (!($attachment['auto_detected'] ?? false)) {
+                                // Delete regular uploaded files
+                                unlink($attachment['path']);
+                                Log::info('Deleted per-recipient attachment file: ' . $attachment['path']);
+                            } else {
+                                Log::info('Skipped deletion of auto-detected attachment: ' . ($attachment['path'] ?? 'unknown'));
+                            }
                         }
                     }
                 }
             }
+        }
+
+        // Clean up temporary uploaded files
+        $this->cleanupTemporaryUploads();
+    }
+
+    /**
+     * Clean up temporary uploaded files from CSV processing.
+     */
+    protected function cleanupTemporaryUploads(): void
+    {
+        $tempDir = storage_path('app/temp_attachments');
+        if (!is_dir($tempDir)) {
+            return;
+        }
+
+        $files = glob($tempDir . '/*');
+        $deletedCount = 0;
+
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                // Delete files older than configured hours
+                $cleanupHours = config('mass-mailer.attachments.temp_cleanup_hours', 1);
+                $cleanupSeconds = $cleanupHours * 3600;
+                if (filemtime($file) < (time() - $cleanupSeconds)) {
+                    unlink($file);
+                    $deletedCount++;
+                }
+            }
+        }
+
+        if ($deletedCount > 0) {
+            Log::info('Cleaned up temporary uploaded files', [
+                'deleted_count' => $deletedCount,
+                'temp_dir' => $tempDir
+            ]);
         }
     }
 
