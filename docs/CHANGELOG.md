@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-11-25
+
+### New Release - FilePond Integration for Modern File Upload Experience
+
+This release introduces FilePond integration to provide a modern, professional file upload interface with enhanced user experience.
+
+### Added
+- **FilePond Integration**: Modern drag-and-drop file upload interface with visual feedback
+- **Image Preview Support**: Automatic thumbnail generation for uploaded image files
+- **Real-time Progress Indicators**: Live upload progress for better user feedback during file transfers
+- **Drag & Drop Functionality**: Users can drag files directly onto upload areas for intuitive file selection
+- **Multiple File Management**: Enhanced support for selecting and managing multiple files simultaneously
+- **Smart File Validation**: Built-in file type and size validation with visual error feedback
+- **Cross-Platform Compatibility**: FilePond works seamlessly across all modern browsers and devices
+- **Mobile-Optimized**: Touch-friendly interface optimized for mobile devices
+- **Reusable FilePond Component**: Shared Blade component for consistent file upload across all interfaces
+
+### Enhanced
+- **User Experience**: Replaced standard HTML file inputs with modern FilePond interface
+- **Visual Feedback**: Improved file selection with drag indicators, hover effects, and progress bars
+- **File Display**: Enhanced file management with visual file cards and removal options
+- **Bootstrap and Tailwind Support**: FilePond integration works with both UI frameworks
+- **Livewire Integration**: Seamless compatibility with existing Livewire file handling
+- **Attachment Management**: Improved attachment upload in both global and per-recipient modes
+
+### Technical Features
+- **FilePond Configuration**: Custom Livewire integration with proper server handling
+- **Plugin Support**: Image preview plugin for enhanced image file handling
+- **CDN Integration**: Automatic loading of FilePond assets from CDN
+- **Component Architecture**: Reusable `<x-input.filepond>` component for consistent usage
+- **Backward Compatibility**: All existing file validation and processing logic preserved
+- **Error Handling**: Enhanced error display with FilePond's built-in error management
+
+### Files Added
+- `src/Views/components/shared/filepond.blade.php` - Reusable FilePond component
+- `FILEPOND_INTEGRATION.md` - Comprehensive documentation for FilePond integration
+
+### Files Modified
+- `src/Views/components/shared/external-libraries.blade.php` - Added FilePond CSS and JS assets
+- `src/Views/tailwind/mass-mailer.blade.php` - Replaced file inputs with FilePond components
+- `src/Views/bootstrap/mass-mailer.blade.php` - Replaced file inputs with FilePond components
+- `src/Views/components/tailwind/attachment-modal.blade.php` - Updated attachment modal with FilePond
+- `src/Views/components/bootstrap/attachment-modal.blade.php` - Updated attachment modal with FilePond
+- `composer.json` - Version updated to 2.2.0
+- `README.md` - Added FilePond features documentation
+
+### Benefits
+- **Modern Interface**: Professional file upload experience that matches current design standards
+- **Improved Usability**: Drag-and-drop interface reduces friction in file selection process
+- **Better Feedback**: Visual progress indicators and error messages improve user confidence
+- **Cross-Browser**: Consistent experience across all modern browsers
+- **Mobile Support**: Touch-friendly interface works well on mobile devices
+- **Developer Friendly**: Easy integration with existing Livewire components
+
 ## [2.1.0] - 2025-11-25
 
 ### New Release - Automatic File Upload from CSV

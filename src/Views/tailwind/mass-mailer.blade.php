@@ -13,25 +13,73 @@
                         <hr class="my-4">
 
                         <label class="block text-sm font-bold mb-2">Upload CSV (optional)</label>
-                        <input type="file" wire:model="csvFile"
-                            class="{{ mass_mailer_get_form_classes('file', 'tailwind') }} mb-4" accept=".csv" />
+                        @include('mass-mailer::components.shared.filepond', [
+                            'wireModel' => 'csvFile',
+                            'accept' => '.csv,.txt',
+                            'multiple' => false,
+                        ])
 
                         <hr class="my-4">
 
                         <label class="block text-sm font-bold mb-2">Attachments</label>
+
                         <div class="flex items-center mb-4">
-                            <input class="mr-2" type="checkbox" wire:model.live.debounce="sameAttachmentForAll"
-                                id="sameAttachment">
-                            <label for="sameAttachment" class="text-sm">Same attachment for all recipients</label>
+                            <input class="mr-2" type="checkbox" wire:model.live.debounce="useAttachmentPaths"
+                                id="useAttachmentPaths">
+                            <label for="useAttachmentPaths" class="text-sm">use attachments' path</label>
                         </div>
 
-                        @if ($this->sameAttachmentForAll)
+                        @if (!$useAttachmentPaths)
+                            <div class="flex items-center mb-4">
+                                <input class="mr-2" type="checkbox" wire:model.live.debounce="sameAttachmentForAll"
+                                    id="sameAttachment">
+                                <label for="sameAttachment" class="text-sm">Same attachment for all recipients</label>
+                            </div>
+                        @endif
+
+                        @if ($this->sameAttachmentForAll && !$useAttachmentPaths)
                             <div>
-                                <input type="file" multiple wire:model="globalAttachments"
-                                    class="{{ mass_mailer_get_form_classes('file', 'tailwind') }}" />
+                                @include('mass-mailer::components.shared.filepond', [
+                                    'wireModel' => 'globalAttachments',
+                                    'multiple' => true,
+                                ])
                                 @error('globalAttachments.*')
                                     <div class="text-red-500 text-sm mt-1">{{ $message }}</div>
                                 @enderror
+                            </div>
+                        @endif
+
+                        @if ($useAttachmentPaths)
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Upload Attachment Files
+                                </label>
+                                @include('mass-mailer::components.shared.filepond', [
+                                    'wireModel' => 'attachmentFiles',
+                                    'multiple' => true,
+                                ])
+                                @error('attachmentFiles.*')
+                                    <div class="text-red-500 text-sm mt-1">{{ $message }}</div>
+                                @enderror
+
+                                <!-- Display uploaded files -->
+                                @if (count($attachmentFiles) > 0)
+                                    <div class="mt-3">
+                                        <p class="text-sm font-medium text-gray-700 mb-2">Uploaded Files:</p>
+                                        <div class="space-y-1">
+                                            @foreach ($attachmentFiles as $index => $file)
+                                                <div class="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
+                                                    <span class="text-sm">{{ $file->getClientOriginalName() }}</span>
+                                                    <button type="button"
+                                                        class="text-red-500 hover:text-red-700 text-sm"
+                                                        wire:click="removeUploadedAttachment({{ $index }})">
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -68,9 +116,9 @@
                                             @endforeach
                                             <option value="add-new">+ Add New Sender</option>
                                         </select>
-                                        <button type="button" class="text-blue-600 hover:text-blue-800 text-sm" wire:click="setShowAddSenderForm(true)">
+                                        {{-- <button type="button" class="text-blue-600 hover:text-blue-800 text-sm" wire:click="setShowAddSenderForm(true)">
                                             <i class="fas fa-plus-circle"></i>
-                                        </button>
+                                        </button> --}}
                                     </div>
                                 @endif
                             </div>
@@ -107,6 +155,8 @@
                         'recipients' => $this->recipients,
                         'sameAttachmentForAll' => $this->sameAttachmentForAll,
                         'perRecipientAttachments' => $this->perRecipientAttachments,
+                        'useAttachmentPaths' => $this->useAttachmentPaths,
+                        'attachmentFiles' => $this->attachmentFiles,
                     ])
                 </div>
 

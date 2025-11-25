@@ -22,10 +22,11 @@
                 <div class="{{ mass_mailer_get_modal_classes('body', 'bootstrap') }}">
                     <div class="mb-4">
                         <label class="block text-sm font-medium mb-2">Add Attachments</label>
-                        <input type="file" multiple
-                            wire:model="perRecipientAttachments.{{ $selectedRecipientIndex }}"
-                            class="{{ mass_mailer_get_form_classes('file', 'bootstrap') }}"
-                            accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif" />
+                        @include('mass-mailer::components.shared.filepond', [
+                            'wireModel' => "perRecipientAttachments.{$selectedRecipientIndex}",
+                            'multiple' => true,
+                            'accept' => '.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif',
+                        ])
                         @if ($errors->has('perRecipientAttachments.' . $selectedRecipientIndex . '.*'))
                             <div class="text-red-500 text-sm mt-1">
                                 @foreach ($errors->get('perRecipientAttachments.' . $selectedRecipientIndex . '.*') as $error)

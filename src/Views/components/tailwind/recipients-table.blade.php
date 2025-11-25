@@ -3,7 +3,8 @@
     'recipients' => [],
     'sameAttachmentForAll' => true,
     'perRecipientAttachments' => [],
-    'selectedSender' => 0,
+    'useAttachmentPaths' => false,
+    'attachmentFiles' => [],
 ])
 
 <!-- Recipients Table Card -->
@@ -29,7 +30,7 @@
                             <th class="{{ mass_mailer_get_table_classes('th', 'tailwind') }}">
                                 {{ $variable }}</th>
                         @endforeach
-                        @if (!$sameAttachmentForAll)
+                        @if (!$sameAttachmentForAll && !$useAttachmentPaths)
                             <th class="{{ mass_mailer_get_table_classes('th', 'tailwind') }}">
                                 Attachments</th>
                         @endif
@@ -55,7 +56,7 @@
                                 </td>
                             @endforeach
 
-                            @if (!$sameAttachmentForAll)
+                            @if (!$sameAttachmentForAll && !$useAttachmentPaths)
                                 <td
                                     class="{{ mass_mailer_get_table_classes('td', 'tailwind') }} text-center">
                                     <button type="button"

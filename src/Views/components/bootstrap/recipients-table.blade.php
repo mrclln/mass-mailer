@@ -3,6 +3,8 @@
     'recipients' => [],
     'sameAttachmentForAll' => true,
     'perRecipientAttachments' => [],
+    'useAttachmentPaths' => false,
+    'attachmentFiles' => [],
 ])
 
 <!-- Recipients Table -->
@@ -26,7 +28,7 @@
                             <th class="{{ mass_mailer_get_table_classes('th', 'bootstrap') }}">
                                 {{ $variable }}</th>
                         @endforeach
-                        @if (!$sameAttachmentForAll)
+                        @if (!$sameAttachmentForAll && !$useAttachmentPaths)
                             <th class="{{ mass_mailer_get_table_classes('th', 'bootstrap') }}">
                                 Attachments</th>
                         @endif
@@ -50,7 +52,7 @@
                                     @endif
                                 </td>
                             @endforeach
-                            @if (!$sameAttachmentForAll)
+                            @if (!$sameAttachmentForAll && !$useAttachmentPaths)
                                 <td
                                     class="{{ mass_mailer_get_table_classes('td', 'bootstrap') }} text-center">
                                     <button type="button"

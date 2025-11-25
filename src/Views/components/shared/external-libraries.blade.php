@@ -1,4 +1,4 @@
-@props(['libraries' => ['quill', 'sweetalert', 'fontawesome']])
+@props(['libraries' => ['quill', 'sweetalert', 'fontawesome', 'filepond']])
 
 @php
     $config = config('mass-mailer-ui.libraries', []);
@@ -21,6 +21,12 @@
     <link href="{{ $config['quill']['css'] }}" rel="stylesheet">
 @endif
 
+{{-- FilePond CSS --}}
+@if (in_array('filepond', $libraries))
+    <link href="https://unpkg.com/filepond/dist/filepond.css" rel="stylesheet">
+    <link href="https://unpkg.com/filepond-plugin-image-preview/dist/filepond-plugin-image-preview.css" rel="stylesheet">
+@endif
+
 {{-- SweetAlert2 JS --}}
 @if (in_array('sweetalert', $libraries) && isset($config['sweetalert']))
     <script src="{{ $config['sweetalert']['js'] }}"></script>
@@ -30,6 +36,13 @@
 @if (in_array('quill', $libraries) && isset($config['quill']))
     <script src="{{ $config['quill']['js'] }}"></script>
 @endif
+
+{{-- FilePond JS --}}
+@if (in_array('filepond', $libraries))
+    <script src="https://unpkg.com/filepond-plugin-image-preview/dist/filepond-plugin-image-preview.js"></script>
+    <script src="https://unpkg.com/filepond/dist/filepond.js"></script>
+@endif
+
 @if ($frameworkJs)
     <script src="{{ $frameworkJs }}" crossorigin="anonymous"></script>
 @endif

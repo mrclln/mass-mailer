@@ -1,7 +1,7 @@
 {
     "name": "mrclln/mass-mailer",
     "description": "A powerful Laravel package for mass email campaigns with customizable UI frameworks (Bootstrap/Tailwind), auto-detection features, and automatic file upload from CSV for cross-platform compatibility",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "type": "library",
     "license": "MIT",
     "authors": [
