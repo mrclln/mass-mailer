@@ -166,14 +166,47 @@ class MassMailer extends Component
   // CSV handling method (delegated to CsvService)
   public function updatedCsvFile()
   {
+    Log::info('CSV file property updated', [
+      'csv_file_exists' => isset($this->csvFile),
+      'csv_file_type' => isset($this->csvFile) ? get_class($this->csvFile) : 'null',
+      'file_name' => isset($this->csvFile) ? $this->csvFile->getClientOriginalName() : 'null',
+      'file_size' => isset($this->csvFile) ? $this->csvFile->getSize() : 'null'
+    ]);
+
     if ($this->csvFile) {
+      Log::info('CSV file processing started', [
+        'file_name' => $this->csvFile->getClientOriginalName(),
+        'file_size' => $this->csvFile->getSize(),
+        'default_variables' => $this->defaultVariables
+      ]);
+
       $csvResult = $this->csvService->handleCSV($this->csvFile, $this->defaultVariables);
+
+      Log::info('CSV processing result', [
+        'success' => $csvResult['success'] ?? false,
+        'variables' => $csvResult['variables'] ?? [],
+        'recipients_count' => count($csvResult['recipients'] ?? []),
+        'recipients' => $csvResult['recipients'] ?? []
+      ]);
 
       if ($csvResult['success']) {
         $this->variables = $csvResult['variables'];
         $this->recipients = $csvResult['recipients'];
         $this->perRecipientAttachments = array_fill(0, count($csvResult['recipients']), []);
+
+        Log::info('CSV data applied to component', [
+          'variables_updated' => $this->variables,
+          'recipients_updated' => $this->recipients,
+          'recipients_count' => count($this->recipients),
+          'perRecipientAttachments_count' => count($this->perRecipientAttachments)
+        ]);
+      } else {
+        Log::error('CSV processing failed', [
+          'error' => $csvResult['error'] ?? 'Unknown error'
+        ]);
       }
+    } else {
+      Log::warning('No CSV file found in updatedCsvFile method');
     }
   }
 
