@@ -1,9 +1,10 @@
 # Mass Mailer
 
-A Laravel package for sending personalized mass emails with Livewire. Features a clean interface that works with both Bootstrap and Tailwind CSS frameworks.
+A comprehensive Laravel package for mass email campaigns with advanced logging, analytics, and Livewire components. Features a clean interface that works with both Bootstrap and Tailwind CSS frameworks.
 
 ## ✨ Features
 
+### Core Email Functionality
 - **🎯 Smart Personalization** - Use variables like `{{ first_name }}`, `{{ email }}` for personalized content
 - **📊 CSV Import** - Upload recipient lists with automatic data mapping
 - **📎 Flexible Attachments** - Global attachments for all recipients or individual ones per person
@@ -11,9 +12,30 @@ A Laravel package for sending personalized mass emails with Livewire. Features a
 - **👥 Multiple Senders** - Switch between different email accounts/senders
 - **👀 Email Preview** - See exactly how your email will look before sending
 - **⚡ Background Processing** - Queue-based sending for better performance
+- **🔒 SMTP Validation** - Test email credentials before saving sender profiles
 - **🎨 Dual Framework Support** - Choose between Bootstrap 5 or Tailwind CSS
 - **📱 Fully Responsive** - Works perfectly on all devices
-- **🔒 Secure & Configurable** - File validation, rate limiting, and customizable settings
+- **🔐 Secure & Configurable** - File validation, rate limiting, and customizable settings
+
+### Advanced Logging & Analytics (v2.0.0)
+- **📈 MassMailerLogs Component** - Comprehensive log management interface
+- **🔍 Advanced Filtering** - Search by recipient, subject, error messages, status, and date ranges
+- **📊 Dashboard Statistics** - Real-time metrics and success rate tracking
+- **📤 Export Functionality** - CSV and JSON export with filtered data support
+- **🔄 Retry Mechanism** - Retry failed emails directly from the interface
+- **👁️ Log Details View** - Comprehensive view of individual email logs
+- **🗑️ Data Management** - Clear old logs with confirmation dialogs
+- **📋 Pagination** - Efficient browsing of large log datasets
+
+### User Analytics & Integration (v2.0.0)
+- **👤 MassMailerUserTrait** - Comprehensive trait for User model integration
+- **📊 30+ Analytics Methods** - Email analytics and reporting for users
+- **⏰ Time-based Analytics** - Daily, weekly, monthly, and yearly reporting
+- **📈 Performance Tracking** - Success rates, failure analysis, recipient tracking
+- **💾 Data Export** - CSV and array export capabilities for user email logs
+- **🔗 Relationship Methods** - Direct relationships for logs and senders
+- **🎯 Advanced Reporting** - Performance trends, subject performance analysis
+- **🔒 User Data Isolation** - Built-in security for multi-user environments
 
 ## 📸 Screenshots
 
@@ -41,11 +63,19 @@ composer require mrclln/mass-mailer
 php artisan vendor:publish --provider="Mrclln\MassMailer\Providers\MassMailerServiceProvider" --tag="mass-mailer-config"
 ```
 
-3. **Enable logging** (optional, for tracking sent emails)
+3. **Database Setup** (recommended, for logging and analytics)
 ```bash
 php artisan vendor:publish --provider="Mrclln\MassMailer\Providers\MassMailerServiceProvider" --tag="mass-mailer-migrations"
 php artisan migrate
 ```
+
+**What this enables:**
+- Complete email logging and tracking
+- User analytics and statistics
+- Advanced filtering and search capabilities
+- Export functionality for email logs
+- Retry mechanism for failed emails
+- Performance monitoring and reporting
 If the provider is **not automatically added**, open:
 bootstrap/providers.php
 and add:
@@ -72,6 +102,61 @@ Or use the component syntax:
 
 ```html
 <livewire:mass-mailer />
+```
+
+### MassMailerLogs Component (v2.0.0)
+
+View and manage all your email campaigns with the comprehensive logs interface:
+
+```blade
+@livewire('mass-mailer-logs')
+```
+
+**Features:**
+- **Real-time Dashboard** - View statistics, success rates, and performance metrics
+- **Advanced Search & Filtering** - Filter by recipient, subject, status, date ranges
+- **Export Capabilities** - Download logs as CSV or JSON files
+- **Detailed Log View** - Click any log to see full email details
+- **Retry Failed Emails** - Directly retry failed emails from the interface
+- **Data Management** - Clear old logs with confirmation dialogs
+- **Responsive Design** - Works on all devices with mobile-first approach
+
+### MassMailerUserTrait (v2.0.0)
+
+Add comprehensive email analytics to your User model:
+
+```php
+// app/Models/User.php
+use Mrclln\MassMailer\Traits\MassMailerUserTrait;
+
+class User extends Authenticatable
+{
+    use MassMailerUserTrait;
+
+    // Your existing User code...
+}
+```
+
+**Available Methods:**
+- **Statistics**: `getMassMailerStats()`, `getMassMailerSuccessRate()`
+- **Time Analytics**: `getMassMailerEmailsSentToday()`, `getMassMailerEmailsSentThisWeek()`
+- **Performance**: `getMassMailerSuccessRate()`, `getMassMailerFailedEmails()`
+- **Relationships**: `massMailerLogs()`, `massMailerSenders()`, `successfulMassMailerLogs()`
+- **Export**: `exportMassMailerLogsToCsv()`, `exportMassMailerLogsToArray()`
+- **Analysis**: `getMassMailerFailureAnalysis()`, `getMassMailerRecipientTracking()`
+
+**Example Usage:**
+```php
+$user = auth()->user();
+
+// Get user's email statistics
+$stats = $user->getMassMailerStats();
+
+// Get success rate
+$successRate = $user->getMassMailerSuccessRate();
+
+// Export user's email logs
+$csvData = $user->exportMassMailerLogsToCsv();
 ```
 
 ## 🎨 UI Framework Support
@@ -124,6 +209,13 @@ First, **run the migration** to create the senders table:
 ```bash
 php artisan migrate
 ```
+
+**New in v2.0.0: SMTP Validation**
+When adding new sender profiles, the system automatically:
+- Tests SMTP credentials before saving
+- Sends a test email to validate the configuration
+- Prevents saving invalid SMTP settings
+- Provides clear error messages for failed validations
 
 **Then create the relationship in your User model:**
 
@@ -214,12 +306,52 @@ sudo supervisorctl update
 sudo supervisorctl start mass-mailer-worker:*
 ```
 
+## 🧪 Testing (v2.0.0)
+
+The package includes comprehensive test files to verify functionality:
+
+```bash
+# Test basic functionality
+php test-mass-mailer-trait.php
+
+# Test email logging
+php test-email-logging.php
+
+# Test sender validation
+php test-sender-validation.php
+
+# Test CC functionality
+php test-cc-functionality.php
+
+# Test attachment detection
+php test-attachment-detection.php
+```
+
+These test files help verify that all features work correctly in your environment.
+
 ## 📋 Requirements
 
 - PHP 8.1+
 - Laravel 10.0, 11.0, or 12.0
 - Livewire 3.0+
-- Database (optional, for logging)
+- Database (recommended, for logging and analytics)
+
+## 📚 Documentation
+
+- **[MassMailerUserTrait Guide](MASS_MAILER_USER_TRAIT_GUIDE.md)** - Complete guide for using the User trait
+- **[MassMailerLogs Component Guide](MASS_MAILER_LOGS_COMPONENT.md)** - Detailed documentation for the logs interface
+- **[Package Publishing Guide](PACKAGE_PUBLISHING_GUIDE.md)** - Information for contributors
+- **[Attachment Auto Detection](ATTACHMENT_AUTO_DETECTION.md)** - Attachment handling documentation
+
+## 🚀 What's New in v2.0.0
+
+- **Complete Analytics Suite** - 30+ methods for user email analytics
+- **Advanced Log Management** - Comprehensive logging with search, filter, and export
+- **SMTP Validation** - Automatic testing of email credentials before saving
+- **User Data Isolation** - Multi-user support with proper data separation
+- **Enhanced UI** - Improved interfaces for both Bootstrap and Tailwind
+- **Retry Mechanism** - Easy retry of failed emails from the logs interface
+- **Performance Monitoring** - Real-time statistics and success rate tracking
 
 ---
 
