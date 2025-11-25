@@ -39,11 +39,16 @@ A comprehensive Laravel package for mass email campaigns with advanced logging, 
 
 ## 📸 Screenshots
 
+
 ### Bootstrap Version
 ![Bootstrap Interface](bootstrap.png)
 
 ### Tailwind Version
 ![Tailwind Interface](tailwind.png)
+
+### Mass Mailer Logs Interface (v2.0.0)
+![Mass Mailer Logs Interface](mass-mailer-logs.png)
+
 
 ## 🚀 Quick Start
 
