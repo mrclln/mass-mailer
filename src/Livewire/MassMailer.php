@@ -198,7 +198,7 @@ class MassMailer extends Component
           'variables_updated' => $this->variables,
           'recipients_updated' => $this->recipients,
           'recipients_count' => count($this->recipients),
-          'perRecipientAttachments_count' => count($this->perRecipientAttachments)
+          'perRecipientAttachments_count' => is_countable($this->perRecipientAttachments) ? count($this->perRecipientAttachments) : 0
         ]);
       } else {
         Log::error('CSV processing failed', [
@@ -234,6 +234,17 @@ class MassMailer extends Component
       // Clear attachment folder data
       $this->attachmentFolderName = '';
       $this->attachmentFiles = [];
+    }
+  }
+
+  /**
+   * Handle sameAttachmentForAll checkbox changes
+   */
+  public function updatedSameAttachmentForAll($value)
+  {
+    if (!$value) {
+      // When unchecking "same attachment for all", initialize perRecipientAttachments for existing recipients
+      $this->perRecipientAttachments = array_fill(0, count($this->recipients), []);
     }
   }
 
@@ -389,7 +400,7 @@ class MassMailer extends Component
       'recipients' => $this->recipients,
       'same_attachment' => $this->sameAttachmentForAll,
       'has_global_attachments' => !empty($this->globalAttachments),
-      'per_recipient_attachments_count' => count($this->perRecipientAttachments)
+      'per_recipient_attachments_count' => is_countable($this->perRecipientAttachments) ? count($this->perRecipientAttachments) : 0
     ]);
 
     // Validate first before processing files
@@ -517,7 +528,7 @@ class MassMailer extends Component
     try {
       Log::info('Dispatching SendMassMailJob', [
         'recipient_count' => count($updatedPayload),
-        'global_attachments_count' => count($storedGlobalAttachments),
+        'global_attachments_count' => is_countable($storedGlobalAttachments) ? count($storedGlobalAttachments) : 0,
         'same_attachment_for_all' => $this->sameAttachmentForAll,
         'first_recipient_attachments' => isset($updatedPayload[0]['attachments']) ? count($updatedPayload[0]['attachments']) : 0
       ]);
@@ -710,7 +721,7 @@ class MassMailer extends Component
       'sameAttachmentForAll' => $this->sameAttachmentForAll,
       'selectedRecipientIndex' => $this->selectedRecipientIndex,
       'recipients_count' => count($this->recipients),
-      'perRecipientAttachments_count' => count($this->perRecipientAttachments)
+      'perRecipientAttachments_count' => is_countable($this->perRecipientAttachments) ? count($this->perRecipientAttachments) : 0
     ]);
 
     return view($viewName, [

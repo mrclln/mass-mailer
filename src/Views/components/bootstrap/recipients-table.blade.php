@@ -60,9 +60,13 @@
                                         wire:click="openAttachmentModal({{ $index }})"
                                         aria-label="Manage attachments for recipient {{ $index + 1 }}">
                                         <i class="fas fa-paperclip fs-5"></i>
-                                        @if (isset($perRecipientAttachments[$index]) && count($perRecipientAttachments[$index]) > 0)
+                                        @if (isset($perRecipientAttachments[$index]) &&
+                                            ((is_countable($perRecipientAttachments[$index]) && count($perRecipientAttachments[$index]) > 0) ||
+                                            (is_object($perRecipientAttachments[$index]) && get_class($perRecipientAttachments[$index]) === 'Livewire\Features\SupportFileUploads\TemporaryUploadedFile')))
                                             <span
-                                                class="badge bg-primary ms-1">{{ count($perRecipientAttachments[$index]) }}</span>
+                                                class="badge bg-primary ms-1">
+                                                {{ is_countable($perRecipientAttachments[$index]) ? count($perRecipientAttachments[$index]) : 1 }}
+                                            </span>
                                         @endif
                                     </button>
                                 </td>

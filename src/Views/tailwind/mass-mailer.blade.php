@@ -63,11 +63,18 @@
                                 @enderror
 
                                 <!-- Display uploaded files -->
-                                @if (count($attachmentFiles) > 0)
+                                @if (isset($attachmentFiles) &&
+                                    ((is_countable($attachmentFiles) && count($attachmentFiles) > 0) ||
+                                    (is_object($attachmentFiles) && get_class($attachmentFiles) === 'Livewire\Features\SupportFileUploads\TemporaryUploadedFile')))
                                     <div class="mt-3">
                                         <p class="text-sm font-medium text-gray-700 mb-2">Uploaded Files:</p>
                                         <div class="space-y-1">
-                                            @foreach ($attachmentFiles as $index => $file)
+                                            @php
+                                                $files = isset($attachmentFiles)
+                                                    ? (is_countable($attachmentFiles) ? $attachmentFiles : [$attachmentFiles])
+                                                    : [];
+                                            @endphp
+                                            @foreach ($files as $index => $file)
                                                 <div class="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
                                                     <span class="text-sm">{{ $file->getClientOriginalName() }}</span>
                                                     <button type="button"

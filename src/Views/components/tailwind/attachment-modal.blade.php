@@ -44,12 +44,18 @@
                         @endif
                     </div>
 
-                    @if (isset($perRecipientAttachments[$selectedRecipientIndex]) &&
-                            count($perRecipientAttachments[$selectedRecipientIndex]) > 0)
+                    {{-- @if (isset($perRecipientAttachments[$selectedRecipientIndex]) &&
+                            ((is_countable($perRecipientAttachments[$selectedRecipientIndex]) && count($perRecipientAttachments[$selectedRecipientIndex]) > 0) ||
+                            (is_object($perRecipientAttachments[$selectedRecipientIndex]) && get_class($perRecipientAttachments[$selectedRecipientIndex]) === 'Livewire\Features\SupportFileUploads\TemporaryUploadedFile')))
                         <div class="mb-4">
                             <h6 class="text-sm font-semibold mb-2">Current Attachments</h6>
                             <div class="space-y-2">
-                                @foreach ($perRecipientAttachments[$selectedRecipientIndex] as $attachmentIndex => $attachment)
+                                @php
+                                    $attachments = is_countable($perRecipientAttachments[$selectedRecipientIndex])
+                                        ? $perRecipientAttachments[$selectedRecipientIndex]
+                                        : [$perRecipientAttachments[$selectedRecipientIndex]];
+                                @endphp
+                                @foreach ($attachments as $attachmentIndex => $attachment)
                                     <div
                                         class="flex justify-between items-center p-3 bg-gray-50 rounded-md">
                                         <div class="flex items-center">
@@ -88,7 +94,7 @@
                             <i class="fas fa-paperclip fa-2x mb-2"></i>
                             <p class="text-sm">No attachments added yet</p>
                         </div>
-                    @endif
+                    @endif --}}
                 </div>
 
                 <!-- Footer -->
