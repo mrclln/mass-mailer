@@ -13,7 +13,7 @@ class EmailTemplateService
     public function insertVariable(string $variable, ?string $body): string
     {
         if ($variable && $body !== null) {
-            $body .= " {{ $variable }} ";
+            $body .= " @{{ $variable }} ";
         }
         return $body ?? '';
     }
@@ -38,8 +38,11 @@ class EmailTemplateService
 
         foreach ($variables as $variable) {
             $value = $recipient[$variable] ?? '';
+            $content = str_replace(" @{{ $variable }} ", $value, $content);
             $content = str_replace("{{ $variable }}", $value, $content);
+            $subj = str_replace(" @{{ $variable }} ", $value, $subj);
             $subj = str_replace("{{ $variable }}", $value, $subj);
+            $previewEmail = str_replace(" @{{ $variable }} ", $value, $previewEmail);
             $previewEmail = str_replace("{{ $variable }}", $value, $previewEmail);
         }
 
@@ -66,7 +69,9 @@ class EmailTemplateService
             // Replace variables in subject and body
             foreach ($variables as $variable) {
                 $value = $recipient[$variable] ?? '';
+                $processedSubject = str_replace(" @{{ $variable }} ", $value, $processedSubject);
                 $processedSubject = str_replace("{{ $variable }}", $value, $processedSubject);
+                $processedBody = str_replace(" @{{ $variable }} ", $value, $processedBody);
                 $processedBody = str_replace("{{ $variable }}", $value, $processedBody);
             }
 
@@ -141,7 +146,8 @@ class EmailTemplateService
      */
     public function extractVariablesFromTemplate(string $template): array
     {
-        preg_match_all('/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/', $template, $matches);
-        return array_unique($matches[1]);
+        preg_match_all('/@\s*\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/', $template, $matches1);
+        preg_match_all('/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/', $template, $matches2);
+        return array_unique(array_merge($matches1[1], $matches2[1]));
     }
 }

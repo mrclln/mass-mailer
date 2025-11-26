@@ -263,6 +263,7 @@ class SendMassMailJob implements ShouldQueue
     {
         foreach ($recipient as $key => $value) {
             if ($key !== 'attachments' && !is_array($value)) {
+                $content = str_replace(" @{{ {$key} }} ", $value, $content);
                 $content = str_replace("{{ {$key} }}", $value, $content);
                 $content = str_replace("{{{$key}}}", $value, $content);
             }

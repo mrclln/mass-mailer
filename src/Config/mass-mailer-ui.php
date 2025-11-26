@@ -39,31 +39,21 @@ return [
     */
 
   'libraries' => [
-    'quill' => [
-      'version' => '1.3.6',
-      'css' => 'https://cdn.jsdelivr.net/npm/quill@1.3.6/dist/quill.snow.css',
-      'js' => 'https://cdn.jsdelivr.net/npm/quill@1.3.6/dist/quill.js',
+    'tinymce' => [
+      'version' => '6.8.3',
+      'js' => 'https://cdn.jsdelivr.net/npm/tinymce@6.8.3/tinymce.min.js',
       'config' => [
-        'theme' => 'snow',
+        'selector' => '#tinymce-editor',
+        'height' => 210,
+        'menubar' => false,
+        'plugins' => 'lists link table code help wordcount',
+        'toolbar' => 'undo redo | blocks | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | link | code',
         'placeholder' => "Type your email body here... You can drag variables.",
-        'modules' => [
-          'toolbar' => [
-            ['bold', 'italic', 'underline', 'strike'],
-            ['blockquote', 'code-block'],
-            [['header' => 1], ['header' => 2]],
-            [['list' => 'ordered'], ['list' => 'bullet']],
-            [['script' => 'sub'], ['script' => 'super']],
-            [['indent' => '-1'], ['indent' => '+1']],
-            [['direction' => 'rtl']],
-            [['size' => ['small', false, 'large', 'huge']]],
-            [['header' => [1, 2, 3, 4, 5, 6, false]]],
-            [['color' => []], ['background' => []]],
-            [['font' => []]],
-            [['align' => []]],
-            ['clean'],
-            ['link']
-          ]
-        ]
+        'branding' => false,
+        'resize' => false,
+        'statusbar' => false,
+        'init_instance_callback' => 'function(editor) { console.log("TinyMCE initialized: " + editor.id); }',
+        'setup' => 'function(editor) { console.log("TinyMCE setup: " + editor.id); }'
       ],
     ],
     'sweetalert' => [

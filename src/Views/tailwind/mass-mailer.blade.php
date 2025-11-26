@@ -139,9 +139,8 @@
                             </div>
 
                             <div class="mb-4" wire:ignore>
-                                <div id="quill-editor" class="w-full border border-gray-300 rounded-md"
-                                    style="min-height: 210px;" ondrop="insertVariableQuill(event)"
-                                    ondragover="event.preventDefault()"></div>
+                                <textarea id="tinymce-editor" class="w-full border border-gray-300 rounded-md"
+                                    style="min-height: 500px !important;"></textarea>
                                 @error('body')
                                     <div class="text-red-500 text-sm mt-1">{{ $message }}</div>
                                 @enderror
@@ -168,7 +167,7 @@
                 </div>
 
             </div>
-            @include('mass-mailer::components.shared.quill-script', ['framework' => 'tailwind'])
+            @include('mass-mailer::components.shared.tinymce-script', ['framework' => 'tailwind'])
     </div>
 
     <!-- Add New Sender Modal -->

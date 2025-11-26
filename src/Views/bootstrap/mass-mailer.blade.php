@@ -123,9 +123,7 @@
                             @enderror
                         </div>
                         <div class="row px-3 " wire:ignore>
-                            <div id="quill-editor" class="form-control flex-grow-1 mb-2" style="min-height: 210px;"
-                                ondrop="insertVariableQuill(event)" ondragover="event.preventDefault()">
-                            </div>
+                            <textarea id="tinymce-editor" class="form-control flex-grow-1 mb-2" style="min-height: 210px;"></textarea>
                             @error('body')
                                 <div class="text-danger small">{{ $message }}</div>
                             @enderror
@@ -237,7 +235,7 @@
             @endif
 
             <!-- Scripts -->
-            @include('mass-mailer::components.shared.quill-script', ['framework' => 'bootstrap'])
+            @include('mass-mailer::components.shared.tinymce-script', ['framework' => 'bootstrap'])
 
         </div>
     @else

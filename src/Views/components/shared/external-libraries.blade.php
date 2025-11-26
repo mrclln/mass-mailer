@@ -1,4 +1,4 @@
-@props(['libraries' => ['quill', 'sweetalert', 'fontawesome', 'filepond']])
+@props(['libraries' => ['tinymce', 'sweetalert', 'fontawesome', 'filepond']])
 
 @php
     $config = config('mass-mailer-ui.libraries', []);
@@ -16,9 +16,9 @@
     <link href="{{ $config['fontawesome']['css'] }}" rel="stylesheet">
 @endif
 
-{{-- Quill CSS --}}
-@if (in_array('quill', $libraries) && isset($config['quill']))
-    <link href="{{ $config['quill']['css'] }}" rel="stylesheet">
+{{-- TinyMCE CSS (handled by CDN, no separate CSS needed) --}}
+@if (in_array('tinymce', $libraries) && isset($config['tinymce']))
+    {{-- TinyMCE includes its own CSS via CDN --}}
 @endif
 
 {{-- FilePond CSS --}}
@@ -32,9 +32,9 @@
     <script src="{{ $config['sweetalert']['js'] }}"></script>
 @endif
 
-{{-- Quill JS --}}
-@if (in_array('quill', $libraries) && isset($config['quill']))
-    <script src="{{ $config['quill']['js'] }}"></script>
+{{-- TinyMCE JS (now loaded inline for reliability) --}}
+@if (in_array('tinymce', $libraries) && isset($config['tinymce']))
+    {{-- TinyMCE CDN is now loaded inline in tinymce-script.blade.php for better reliability --}}
 @endif
 
 {{-- FilePond JS --}}
