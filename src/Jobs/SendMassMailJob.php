@@ -145,6 +145,24 @@ class SendMassMailJob implements ShouldQueue
         $personalizedSubject = $this->personalizeContent($this->subject, $recipient);
         $personalizedBody = $this->personalizeContent($this->body, $recipient);
 
+        // Check for duplicate email (same recipient, subject, within 10 minutes)
+        if (MassMailerLog::isDuplicate($email, $personalizedSubject, 10)) {
+            Log::info('Duplicate email detected, skipping', [
+                'recipient' => $email,
+                'subject' => $personalizedSubject,
+            ]);
+            return;
+        }
+
+        // Check if there's already a pending email (same recipient, subject, within 10 minutes)
+        if (MassMailerLog::isPending($email, $personalizedSubject, 10)) {
+            Log::info('Pending duplicate email detected, skipping', [
+                'recipient' => $email,
+                'subject' => $personalizedSubject,
+            ]);
+            return;
+        }
+
         // Prepare attachments
         $attachments = $this->prepareAttachments($recipient);
 

@@ -179,4 +179,42 @@ class MassMailerLog extends Model
             'status' => 'pending',
         ]);
     }
+
+    /**
+     * Check if a similar email was already sent within the given time window.
+     *
+     * @param string $recipientEmail
+     * @param string $subject
+     * @param int $minutes Time window in minutes (default 10)
+     * @return bool True if duplicate exists, false otherwise
+     */
+    public static function isDuplicate(string $recipientEmail, string $subject, int $minutes = 10): bool
+    {
+        $timeWindow = now()->subMinutes($minutes);
+
+        return self::where('recipient_email', $recipientEmail)
+            ->where('subject', $subject)
+            ->where('status', 'sent')
+            ->where('sent_at', '>=', $timeWindow)
+            ->exists();
+    }
+
+    /**
+     * Check if a similar email is already pending within the given time window.
+     *
+     * @param string $recipientEmail
+     * @param string $subject
+     * @param int $minutes Time window in minutes (default 10)
+     * @return bool True if pending duplicate exists, false otherwise
+     */
+    public static function isPending(string $recipientEmail, string $subject, int $minutes = 10): bool
+    {
+        $timeWindow = now()->subMinutes($minutes);
+
+        return self::where('recipient_email', $recipientEmail)
+            ->where('subject', $subject)
+            ->where('status', 'pending')
+            ->where('created_at', '>=', $timeWindow)
+            ->exists();
+    }
 }
