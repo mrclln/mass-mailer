@@ -46,3 +46,27 @@
 @if ($frameworkJs)
     <script src="{{ $frameworkJs }}" crossorigin="anonymous"></script>
 @endif
+
+<script>
+    // Keep send button disabled for a period after clicking to prevent duplicate sends
+    document.addEventListener('livewire:init', () => {
+        Livewire.on('setSendingTimeout', (data) => {
+            const seconds = data.seconds || 30000; // Default 30 seconds
+            // Find all send buttons and disable them
+            const sendButtons = document.querySelectorAll('[wire\\:click="sendMassMail"]');
+            sendButtons.forEach(button => {
+                button.disabled = true;
+                button.setAttribute('wire:loading.attr', 'disabled');
+            });
+
+            // Re-enable after timeout
+            setTimeout(() => {
+                sendButtons.forEach(button => {
+                    button.disabled = false;
+                });
+                // Call the server to reset the sending state
+                Livewire.dispatch('resetSendingState');
+            }, seconds);
+        });
+    });
+</script>

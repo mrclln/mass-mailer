@@ -21,7 +21,7 @@
         <button
             class="{{ mass_mailer_get_color_classes('primary', $framework) }} px-4 py-2 rounded-md transition-colors {{ mass_mailer_get_button_loading_classes($framework) }}"
             wire:click="sendMassMail" wire:loading.attr="disabled"
-            wire:target="sendMassMail,subject" @if (empty($recipients) || !$subject) disabled @endif>
+            wire:target="sendMassMail,subject" @if (empty($recipients) || !$subject || $sending) disabled @endif>
             <span wire:loading.remove wire:target='sendMassMail'>
                 <i class="fas fa-paper-plane mr-2"></i> Send Mass Mail
             </span>
@@ -48,7 +48,7 @@
             </span>
         </button>
         <button class="btn {{ mass_mailer_get_color_classes('primary', $framework) }} {{ mass_mailer_get_button_loading_classes($framework) }}" wire:click="sendMassMail" wire:loading.attr="disabled"
-            wire:target="sendMassMail,subject" @if(empty($recipients) || !$subject) disabled @endif>
+            wire:target="sendMassMail,subject" @if(empty($recipients) || !$subject || $sending) disabled @endif>
             <span wire:loading.remove wire:target='sendMassMail'>
                 <i class="fas fa-paper-plane me-2 fs-5"></i>
                 Send Mass Mail

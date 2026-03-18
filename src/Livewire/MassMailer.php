@@ -407,6 +407,9 @@ class MassMailer extends Component
     $this->validate();
     $this->sending = true;
 
+    // Dispatch event to disable button on frontend
+    $this->dispatch('setSendingTimeout', seconds: config('mass-mailer.ui.sending_timeout', 30000));
+
     $storedGlobalAttachments = [];
 
     // Handle and store global attachments
@@ -626,6 +629,15 @@ class MassMailer extends Component
     $this->setShowAddSenderForm(false);
     $this->reset(['newSenderName', 'newSenderEmail', 'newSenderHost', 'newSenderPort', 'newSenderUsername', 'newSenderPassword']);
     $this->newSenderEncryption = 'tls';
+  }
+
+  /**
+   * Reset the sending state after a timeout.
+   * This is called from JavaScript to prevent duplicate clicks.
+   */
+  public function resetSendingState()
+  {
+    $this->sending = false;
   }
 
   // Sender management methods (delegated to SenderService)

@@ -188,6 +188,18 @@ return [
   ],
 
   /*
+    |-----------------------------------------------------------------------
+    | Sending Timeout
+    |-----------------------------------------------------------------------|
+    |
+    | Configure how long the send button remains disabled after clicking
+    | to prevent duplicate submissions. Value is in milliseconds.
+    |
+    */
+
+  'sending_timeout' => env('MASS_MAILER_SENDING_TIMEOUT', 30000), // 30 seconds default
+
+  /*
     |--------------------------------------------------------------------------
     | Alert/Error Styling
     |--------------------------------------------------------------------------
